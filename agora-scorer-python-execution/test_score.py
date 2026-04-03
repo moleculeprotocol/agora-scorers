@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT_DIR / "gems-code-executor" / "score.py"
+MODULE_PATH = ROOT_DIR / "agora-scorer-python-execution" / "score.py"
 COMMON_DIR = ROOT_DIR / "common"
 if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
@@ -85,7 +85,7 @@ def run_case(
     runtime_manifest: dict | None = None,
 ):
     module = load_executor_module()
-    workspace = Path(tempfile.mkdtemp(prefix="agora-gems-code-executor-"))
+    workspace = Path(tempfile.mkdtemp(prefix="agora-agora-scorer-python-execution-"))
     input_dir = workspace / "input"
     output_dir = workspace / "output"
     input_dir.mkdir()

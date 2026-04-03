@@ -16,7 +16,7 @@ This repo targets one canonical scorer runtime contract only:
 
 Agora scoring stays clean when these responsibilities remain separate:
 
-1. `packages/common/src/official-backend-registry.ts`
+1. `packages/common/src/official-scorer-registry.ts`
    - owns official scorer image identity and runtime limits
 2. `packages/common/src/authoring-preset-registry.ts`
    - owns guided preset discovery for authoring
@@ -74,7 +74,7 @@ These are protocol regression tests, not dataset fixtures.
 3. Add `score.py` and `test_score.py`.
 4. Add a Dockerfile that builds from the scorer repo root.
 5. Publish the image.
-6. Register the backend and any preset in the main Agora repo.
+6. Register the scorer and any preset in the main Agora repo.
 
 ## Design Rules
 
@@ -87,5 +87,5 @@ These are protocol regression tests, not dataset fixtures.
 ## Release Rule
 
 If the runtime contract changes, cut straight to the new contract and roll the
-official backend digests forward with the new scorer images. Do not keep
+official scorer digests forward with the new scorer images. Do not keep
 parallel runtime protocols unless there is an explicit migration requirement.

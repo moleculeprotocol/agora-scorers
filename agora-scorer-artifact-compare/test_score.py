@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT_DIR / "gems-match-scorer" / "score.py"
+MODULE_PATH = ROOT_DIR / "agora-scorer-artifact-compare" / "score.py"
 COMMON_DIR = ROOT_DIR / "common"
 if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
@@ -116,7 +116,7 @@ def run_case(
     runtime_manifest: dict | None = None,
 ):
     module = load_scorer_module()
-    workspace = Path(tempfile.mkdtemp(prefix="agora-gems-match-scorer-"))
+    workspace = Path(tempfile.mkdtemp(prefix="agora-agora-scorer-artifact-compare-"))
     input_dir = workspace / "input"
     output_dir = workspace / "output"
     input_dir.mkdir()

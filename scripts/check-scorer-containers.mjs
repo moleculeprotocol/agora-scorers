@@ -7,10 +7,10 @@ const disallowedAssetPattern =
   /\.(csv|tsv|jsonl|parquet|arrow|feather|npy|npz|pt|pth|ckpt|onnx|pkl|pickle|joblib|bin|h5|hdf5|tar|tgz|gz|bz2|xz|zip)$/i;
 
 const scorerDirs = [
-  "gems-match-scorer",
-  "gems-tabular-scorer",
-  "gems-ranking-scorer",
-  "gems-code-executor",
+  "agora-scorer-artifact-compare",
+  "agora-scorer-table-metric",
+  "agora-scorer-ranking-metric",
+  "agora-scorer-python-execution",
 ];
 
 function fail(message) {

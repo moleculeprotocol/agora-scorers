@@ -95,7 +95,7 @@ def load_runtime_config() -> dict:
     )
     metric = runtime_manifest.get("metric")
     if metric != "pass_rate":
-        fail_runtime("Unsupported metric. official_code_execution_v1 requires pass_rate.")
+        fail_runtime("Unsupported metric. official_python_execution requires pass_rate.")
     require_relation(
         runtime_manifest,
         kind="execute_against",

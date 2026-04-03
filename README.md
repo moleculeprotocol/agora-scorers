@@ -13,7 +13,7 @@ It does not own:
 
 - authoring flows
 - challenge taxonomy
-- official backend selection
+- official scorer selection in Agora
 - preset discovery
 - worker orchestration
 - proof publication
@@ -36,21 +36,21 @@ Scorers do not support retired runtime layouts or compatibility shims.
 
 There are four scorer images:
 
-| Container | Official backend(s) in Agora | What it judges | Current metric(s) |
+| Container | Official scorer(s) in Agora | What it judges | Current metric(s) |
 | --- | --- | --- | --- |
-| `gems-tabular-scorer` | `official_table_metric_v1` | CSV predictions against hidden CSV truth | `r2`, `rmse`, `mae`, `pearson`, `spearman`, `accuracy`, `f1` |
-| `gems-ranking-scorer` | `official_ranking_metric_v1` | ranked CSV outputs against hidden relevance labels | `ndcg`, `spearman` |
-| `gems-match-scorer` | `official_exact_match_v1`, `official_structured_record_v1` | exact file match and structured JSON validation | `exact_match`, `validation_score` |
-| `gems-code-executor` | `official_code_execution_v1` | Python code run against a hidden deterministic harness | `pass_rate` |
+| `agora-scorer-table-metric` | `official_table_metric` | CSV predictions against hidden CSV truth | `r2`, `rmse`, `mae`, `pearson`, `spearman`, `accuracy`, `f1` |
+| `agora-scorer-ranking-metric` | `official_ranking_metric` | ranked CSV outputs against hidden relevance labels | `ndcg`, `spearman` |
+| `agora-scorer-artifact-compare` | `official_exact_match`, `official_structured_validation` | exact file match and structured JSON validation | `exact_match`, `validation_score` |
+| `agora-scorer-python-execution` | `official_python_execution` | Python code run against a hidden deterministic harness | `pass_rate` |
 
 ## Repo Layout
 
 ```text
 common/                shared scorer runtime loader
-gems-tabular-scorer/   CSV table metrics
-gems-ranking-scorer/   ranking metrics
-gems-match-scorer/     exact-match and structured-record validation
-gems-code-executor/    deterministic code execution
+agora-scorer-table-metric/   CSV table metrics
+agora-scorer-ranking-metric/   ranking metrics
+agora-scorer-artifact-compare/     exact-match and structured-record validation
+agora-scorer-python-execution/    deterministic code execution
 docs/                  extension notes
 scripts/               local test helpers and container guards
 ```
@@ -80,13 +80,13 @@ Images publish to `ghcr.io/andymolecule/`.
 Convenience tags:
 
 ```bash
-docker pull ghcr.io/andymolecule/gems-tabular-scorer:latest
-docker pull ghcr.io/andymolecule/gems-ranking-scorer:latest
-docker pull ghcr.io/andymolecule/gems-match-scorer:latest
-docker pull ghcr.io/andymolecule/gems-code-executor:latest
+docker pull ghcr.io/andymolecule/agora-scorer-table-metric:latest
+docker pull ghcr.io/andymolecule/agora-scorer-ranking-metric:latest
+docker pull ghcr.io/andymolecule/agora-scorer-artifact-compare:latest
+docker pull ghcr.io/andymolecule/agora-scorer-python-execution:latest
 ```
 
-Agora itself binds official backends to immutable digests, not floating tags.
+Agora itself binds official scorers to immutable digests, not floating tags.
 
 ## Local Development
 
@@ -99,10 +99,10 @@ bash scripts/run-scorer-tests.sh
 Run one scorer directly:
 
 ```bash
-python3 gems-tabular-scorer/test_score.py
-python3 gems-ranking-scorer/test_score.py
-python3 gems-match-scorer/test_score.py
-python3 gems-code-executor/test_score.py
+python3 agora-scorer-table-metric/test_score.py
+python3 agora-scorer-ranking-metric/test_score.py
+python3 agora-scorer-artifact-compare/test_score.py
+python3 agora-scorer-python-execution/test_score.py
 ```
 
 ## CI And Publication
@@ -122,14 +122,14 @@ Normal path:
 
 1. Add or update scorer code in this repo.
 2. Publish the scorer image.
-3. Register the backend and any authoring preset in the main Agora repo.
+3. Register the scorer and any authoring preset in the main Agora repo.
 4. Add any new shared artifact schema in the main Agora repo if needed.
 5. Add tests in both repos.
 
 ## Related Links
 
 - [Agora main repo](https://github.com/andymolecule/Agora)
-- [Official backend registry](https://github.com/andymolecule/Agora/blob/main/packages/common/src/official-backend-registry.ts)
+- [Official scorer registry](https://github.com/andymolecule/Agora/blob/main/packages/common/src/official-scorer-registry.ts)
 - [Authoring preset registry](https://github.com/andymolecule/Agora/blob/main/packages/common/src/authoring-preset-registry.ts)
 - [Agora protocol](https://github.com/andymolecule/Agora/blob/main/docs/protocol.md)
 - [Scoring extension guide](./docs/scoring-engines.md)

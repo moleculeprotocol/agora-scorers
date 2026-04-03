@@ -15,13 +15,13 @@ run_step() {
 }
 
 run_step "Tabular scorer regression fixture" \
-  python3 gems-tabular-scorer/test_score.py
+  python3 agora-scorer-table-metric/test_score.py
 
 run_step "Exact-match scorer regression fixture" \
-  python3 gems-match-scorer/test_score.py
+  python3 agora-scorer-artifact-compare/test_score.py
 
 run_step "Ranking scorer regression fixture" \
-  python3 gems-ranking-scorer/test_score.py
+  python3 agora-scorer-ranking-metric/test_score.py
 
 run_step "Code executor regression fixture" \
-  python3 gems-code-executor/test_score.py
+  python3 agora-scorer-python-execution/test_score.py

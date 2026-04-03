@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - "common/**"
-      - "gems-*/**"
+      - "agora-scorer-*/**"
       - ".github/workflows/publish.yml"
       - "scripts/**"
 
@@ -37,18 +37,18 @@ jobs:
     strategy:
       fail-fast: false
       # Public scorer allowlist — only images registered in the Agora
-      # official backend registry belong here. Adding an entry makes it
+      # official scorer registry belong here. Adding an entry makes it
       # publicly pullable on GHCR. Do not add non-catalog images.
       matrix:
         include:
-          - name: gems-match-scorer
-            dockerfile: gems-match-scorer/Dockerfile
-          - name: gems-tabular-scorer
-            dockerfile: gems-tabular-scorer/Dockerfile
-          - name: gems-ranking-scorer
-            dockerfile: gems-ranking-scorer/Dockerfile
-          - name: gems-code-executor
-            dockerfile: gems-code-executor/Dockerfile
+          - name: agora-scorer-artifact-compare
+            dockerfile: agora-scorer-artifact-compare/Dockerfile
+          - name: agora-scorer-table-metric
+            dockerfile: agora-scorer-table-metric/Dockerfile
+          - name: agora-scorer-ranking-metric
+            dockerfile: agora-scorer-ranking-metric/Dockerfile
+          - name: agora-scorer-python-execution
+            dockerfile: agora-scorer-python-execution/Dockerfile
 
     steps:
       - name: Checkout
