@@ -1,16 +1,8 @@
 """
 Agora Code Executor
 
-Runs a solver-submitted Python script against a hidden deterministic harness
-bundle and scores by pass rate.
-
-Input:
-  /input/runtime-manifest.json
-  /input/evaluation/<role>/<filename>
-  /input/submission/<role>/<filename>
-
-Output:
-  /output/score.json
+Runs one or more solver-submitted Python scripts against hidden deterministic
+harness bundles and scores by mean pass rate.
 """
 
 import json
@@ -27,9 +19,10 @@ if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
 
 from runtime_contract import (
+    aggregate_relation_scores,
     load_runtime_manifest,
-    require_relation,
-    resolve_runtime_artifact,
+    require_relation_plan_template,
+    resolve_relation_artifact_sets,
 )
 
 INPUT_DIR = Path("/input")
@@ -96,48 +89,36 @@ def load_runtime_config() -> dict:
     metric = runtime_manifest["metric"]
     if metric != "pass_rate":
         fail_runtime("Unsupported metric. official_python_execution requires pass_rate.")
-    require_relation(
+
+    template = require_relation_plan_template(
         runtime_manifest,
         kind="execute_against",
-        harness_role="harness",
-        solution_role="solution",
         fail_runtime=fail_runtime,
     )
-    evaluation_artifact = resolve_runtime_artifact(
+    relation_sets = resolve_relation_artifact_sets(
         runtime_manifest,
-        lane="evaluation",
-        role="harness",
+        template=template,
         fail_runtime=fail_runtime,
     )
-    submission_artifact = resolve_runtime_artifact(
-        runtime_manifest,
-        lane="submission",
-        role="solution",
-        fail_runtime=fail_runtime,
-    )
-    require_file_slot(
-        evaluation_artifact["slot"],
-        "evaluation.harness",
-        expected_extension=".zip",
-        expected_validator_kind="archive_layout",
-    )
-    require_file_slot(
-        submission_artifact["slot"],
-        "submission.solution",
-        expected_extension=".py",
-        expected_validator_kind="none",
-    )
-
-    evaluation_path = evaluation_artifact["path"]
-    submission_path = submission_artifact["path"]
-    if evaluation_path is None:
-        fail_runtime("Missing required evaluation artifact role harness.")
-    if submission_path is None:
-        fail_runtime("Missing required submission artifact role solution.")
+    for relation_set in relation_sets:
+        evaluation_artifact = relation_set["evaluation"][0]
+        submission_artifact = relation_set["submission"][0]
+        require_file_slot(
+            evaluation_artifact["slot"],
+            f"evaluation.{evaluation_artifact['role']}",
+            expected_extension=".zip",
+            expected_validator_kind="archive_layout",
+        )
+        require_file_slot(
+            submission_artifact["slot"],
+            f"submission.{submission_artifact['role']}",
+            expected_extension=".py",
+            expected_validator_kind="none",
+        )
 
     return {
-        "evaluation_path": evaluation_path,
-        "submission_path": submission_path,
+        "aggregation": template["aggregation"],
+        "relation_sets": relation_sets,
     }
 
 
@@ -264,9 +245,7 @@ def run_python_test_case(test_case: dict) -> dict:
     if not stdin_path.exists():
         fail_runtime(f"Harness test input is missing: {stdin_path}")
     if not expected_stdout_path.exists():
-        fail_runtime(
-            f"Harness expected output is missing: {expected_stdout_path}"
-        )
+        fail_runtime(f"Harness expected output is missing: {expected_stdout_path}")
 
     expected_stdout = normalize_output(
         expected_stdout_path.read_text(encoding="utf-8"),
@@ -318,15 +297,23 @@ def run_python_test_case(test_case: dict) -> dict:
     }
 
 
-def main() -> None:
-    runtime = load_runtime_config()
-    submission_path = runtime["submission_path"]
-    if not submission_path.exists():
-        fail_runtime(f"Missing required submission file: {submission_path}")
+def score_relation(relation_artifact_set: dict) -> dict:
+    evaluation_artifact = relation_artifact_set["evaluation"][0]
+    submission_artifact = relation_artifact_set["submission"][0]
+    evaluation_path = evaluation_artifact["path"]
+    submission_path = submission_artifact["path"]
+    if evaluation_path is None:
+        fail_runtime(
+            f"Missing required evaluation artifact role {evaluation_artifact['role']}."
+        )
+    if submission_path is None:
+        fail_runtime(
+            f"Missing required submission artifact role {submission_artifact['role']}."
+        )
 
     with tempfile.TemporaryDirectory(prefix="agora-code-executor-") as temp_dir:
         harness_root = extract_harness_bundle(
-            runtime["evaluation_path"],
+            evaluation_path,
             Path(temp_dir) / "harness",
         )
         manifest = load_harness_manifest(harness_root)
@@ -354,19 +341,52 @@ def main() -> None:
 
     total_tests = len(results)
     score = passed_count / total_tests if total_tests > 0 else 0.0
+    return {
+        "score": score,
+        "details": {
+            "comparison_kind": "execution_judge",
+            "selected_metric": "pass_rate",
+            "selected_metric_value": score,
+            "tests_passed": passed_count,
+            "tests_total": total_tests,
+            "results": results,
+        },
+    }
+
+
+def main() -> None:
+    runtime = load_runtime_config()
+    relation_results = []
+    relation_scores = []
+
+    for relation_artifact_set in runtime["relation_sets"]:
+        relation_result = score_relation(relation_artifact_set)
+        relation_scores.append(relation_result["score"])
+        relation_results.append(
+            {
+                "relation_kind": relation_artifact_set["relation"]["kind"],
+                "evaluation_roles": [artifact["role"] for artifact in relation_artifact_set["evaluation"]],
+                "submission_roles": [artifact["role"] for artifact in relation_artifact_set["submission"]],
+                "score": relation_result["score"],
+                "details": relation_result["details"],
+            }
+        )
+
+    aggregated_score = aggregate_relation_scores(
+        relation_scores,
+        aggregation=runtime["aggregation"],
+        fail_runtime=fail_runtime,
+    )
     deterministic_json_write(
         {
             "ok": True,
-            "score": score,
-            "tests_passed": passed_count,
-            "tests_total": total_tests,
+            "score": float(round(aggregated_score, 12)),
             "details": {
-                "comparison_kind": "execution_judge",
+                "aggregation": runtime["aggregation"],
+                "relation_count": len(relation_results),
                 "selected_metric": "pass_rate",
-                "selected_metric_value": score,
-                "tests_passed": passed_count,
-                "tests_total": total_tests,
-                "results": results,
+                "selected_metric_value": float(round(aggregated_score, 12)),
+                "relation_scores": relation_results,
             },
         }
     )

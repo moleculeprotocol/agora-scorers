@@ -3,6 +3,14 @@ import json
 from pathlib import Path
 
 
+def build_official_scorer(scorer_id: str) -> dict:
+    return {
+        "kind": "official",
+        "id": scorer_id,
+        "image": f"ghcr.io/agora/{scorer_id}@sha256:test",
+    }
+
+
 def write_runtime_payload(path: Path, payload: str | bytes) -> bytes:
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(payload, bytes):
@@ -60,18 +68,22 @@ def absent_runtime_artifact(
 def write_runtime_manifest(
     input_dir: Path,
     *,
+    scorer: dict,
     metric: str,
     comparator: str,
     artifact_contract: dict,
+    relation_plan: dict,
     artifacts: list[dict],
     evaluation_bindings: list[dict] | None = None,
     policies: dict | None = None,
 ) -> dict:
     runtime_manifest = {
         "kind": "runtime_manifest",
+        "scorer": scorer,
         "metric": metric,
         "comparator": comparator,
         "artifact_contract": artifact_contract,
+        "relation_plan": relation_plan,
         "evaluation_bindings": evaluation_bindings or [],
         "artifacts": artifacts,
         "policies": policies

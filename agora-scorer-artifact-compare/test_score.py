@@ -11,7 +11,11 @@ COMMON_DIR = ROOT_DIR / "common"
 if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
 
-from runtime_test_support import stage_runtime_artifact, write_runtime_manifest
+from runtime_test_support import (
+    build_official_scorer,
+    stage_runtime_artifact,
+    write_runtime_manifest,
+)
 
 
 def load_scorer_module():
@@ -102,6 +106,42 @@ def build_structured_validation_contract() -> dict:
     }
 
 
+def build_relation_plan(*, kind: str, aggregation: str) -> dict:
+    return {
+        "templates": [
+            {
+                "kind": kind,
+                "cardinality": "many",
+                "aggregation": aggregation,
+                "evaluation": [
+                    {
+                        "acceptedValidatorKinds": (
+                            ["json_document", "json_schema"]
+                            if kind == "structured_validation"
+                            else ["csv_columns", "json_document", "json_schema", "none"]
+                        ),
+                    }
+                ],
+                "submission": [
+                    {
+                        "acceptedValidatorKinds": (
+                            ["json_document", "json_schema"]
+                            if kind == "structured_validation"
+                            else ["csv_columns", "json_document", "json_schema", "none"]
+                        ),
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def build_scorer_for_metric(metric: str) -> dict:
+    if metric == "validation_score":
+        return build_official_scorer("official_structured_validation")
+    return build_official_scorer("official_exact_match")
+
+
 def run_case(
     *,
     artifact_contract: dict,
@@ -146,9 +186,18 @@ def run_case(
     if runtime_manifest is None:
         write_runtime_manifest(
             input_dir,
+            scorer=build_scorer_for_metric(metric),
             metric=metric,
             comparator=comparator,
             artifact_contract=artifact_contract,
+            relation_plan=build_relation_plan(
+                kind=artifact_contract["relations"][0]["kind"],
+                aggregation=(
+                    "mean"
+                    if artifact_contract["relations"][0]["kind"] == "structured_validation"
+                    else "all_or_nothing"
+                ),
+            ),
             artifacts=[evaluation_artifact, submission_artifact],
         )
     else:
@@ -156,6 +205,132 @@ def run_case(
             json.dumps(runtime_manifest),
             encoding="utf-8",
         )
+
+    module.INPUT_DIR = input_dir
+    module.OUTPUT_DIR = output_dir
+    module.OUTPUT_PATH = output_dir / "score.json"
+
+    exit_code = 0
+    try:
+        module.main()
+    except SystemExit as exc:
+        exit_code = int(exc.code or 0)
+
+    payload = json.loads((output_dir / "score.json").read_text(encoding="utf-8"))
+    shutil.rmtree(workspace)
+    return exit_code, payload
+
+
+def run_multi_relation_exact_match_case():
+    module = load_scorer_module()
+    workspace = Path(tempfile.mkdtemp(prefix="agora-agora-scorer-artifact-compare-multi-"))
+    input_dir = workspace / "input"
+    output_dir = workspace / "output"
+    input_dir.mkdir()
+    output_dir.mkdir()
+
+    artifact_contract = {
+        "evaluation": [
+            {
+                **build_exact_match_contract(
+                    validator={"kind": "json_document"},
+                    extension=".json",
+                    mime_type="application/json",
+                )["evaluation"][0],
+                "role": "reference_a",
+            },
+            {
+                **build_exact_match_contract(
+                    validator={"kind": "json_document"},
+                    extension=".json",
+                    mime_type="application/json",
+                )["evaluation"][0],
+                "role": "reference_b",
+            },
+        ],
+        "submission": [
+            {
+                **build_exact_match_contract(
+                    validator={"kind": "json_document"},
+                    extension=".json",
+                    mime_type="application/json",
+                )["submission"][0],
+                "role": "answer_a",
+            },
+            {
+                **build_exact_match_contract(
+                    validator={"kind": "json_document"},
+                    extension=".json",
+                    mime_type="application/json",
+                )["submission"][0],
+                "role": "answer_b",
+            },
+        ],
+        "relations": [
+            {
+                "kind": "exact_match",
+                "evaluation_role": "reference_a",
+                "submission_role": "answer_a",
+            },
+            {
+                "kind": "exact_match",
+                "evaluation_role": "reference_b",
+                "submission_role": "answer_b",
+            },
+        ],
+    }
+
+    staged_artifacts = [
+        stage_runtime_artifact(
+            input_dir,
+            lane="evaluation",
+            role="reference_a",
+            file_name="reference_a.json",
+            payload='{"result":1}',
+            validator=artifact_contract["evaluation"][0]["validator"],
+            mime_type="application/json",
+        ),
+        stage_runtime_artifact(
+            input_dir,
+            lane="evaluation",
+            role="reference_b",
+            file_name="reference_b.json",
+            payload='{"result":2}',
+            validator=artifact_contract["evaluation"][1]["validator"],
+            mime_type="application/json",
+        ),
+        stage_runtime_artifact(
+            input_dir,
+            lane="submission",
+            role="answer_a",
+            file_name="answer_a.json",
+            payload='{"result":1}',
+            validator=artifact_contract["submission"][0]["validator"],
+            mime_type="application/json",
+        ),
+        stage_runtime_artifact(
+            input_dir,
+            lane="submission",
+            role="answer_b",
+            file_name="answer_b.json",
+            payload='{"result":3}',
+            validator=artifact_contract["submission"][1]["validator"],
+            mime_type="application/json",
+        ),
+    ]
+
+    write_runtime_manifest(
+        input_dir,
+        scorer=build_official_scorer("official_exact_match"),
+        metric="exact_match",
+        comparator="maximize",
+        artifact_contract=artifact_contract,
+        relation_plan=build_relation_plan(
+            kind="exact_match",
+            aggregation="all_or_nothing",
+        ),
+        artifacts=staged_artifacts,
+    )
 
     module.INPUT_DIR = input_dir
     module.OUTPUT_DIR = output_dir
@@ -197,7 +372,7 @@ exit_code, payload = run_case(
 assert exit_code == 0, f"csv exact-match run should not crash: {exit_code}"
 assert payload["ok"] is True, payload
 assert payload["score"] == 1.0, payload
-assert payload["details"]["comparison_kind"] == "csv_exact_match", payload
+assert payload["details"]["relation_scores"][0]["details"]["comparison_kind"] == "csv_exact_match", payload
 
 json_contract = build_exact_match_contract(
     validator={"kind": "json_document"},
@@ -218,7 +393,7 @@ exit_code, payload = run_case(
 assert exit_code == 0, f"json exact-match run should not crash: {exit_code}"
 assert payload["ok"] is True, payload
 assert payload["score"] == 1.0, payload
-assert payload["details"]["comparison_kind"] == "json_exact_match", payload
+assert payload["details"]["relation_scores"][0]["details"]["comparison_kind"] == "json_exact_match", payload
 
 exit_code, payload = run_case(
     artifact_contract=json_contract,
@@ -271,7 +446,10 @@ assert exit_code == 0, f"structured-record validation run should not crash: {exi
 assert payload["ok"] is True, payload
 assert payload["score"] == 1.0, payload
 assert payload["details"]["comparison_kind"] == "structured_validation", payload
-assert payload["details"]["checks_passed"] == payload["details"]["checks_total"], payload
+assert (
+    payload["details"]["relation_scores"][0]["details"]["checks_passed"]
+    == payload["details"]["relation_scores"][0]["details"]["checks_total"]
+), payload
 
 exit_code, payload = run_case(
     artifact_contract=structured_contract,
@@ -306,9 +484,9 @@ exit_code, payload = run_case(
 assert exit_code == 0, f"structured-record invalid run should not crash: {exit_code}"
 assert payload["ok"] is True, payload
 assert payload["score"] < 0.5, payload
-assert "missing_or_empty:timeline" in payload["details"]["failed_checks"], payload
-assert "array_required:actions_taken" in payload["details"]["failed_checks"], payload
-assert "allowed_value:severity" in payload["details"]["failed_checks"], payload
+assert "missing_or_empty:timeline" in payload["details"]["relation_scores"][0]["details"]["failed_checks"], payload
+assert "array_required:actions_taken" in payload["details"]["relation_scores"][0]["details"]["failed_checks"], payload
+assert "allowed_value:severity" in payload["details"]["relation_scores"][0]["details"]["failed_checks"], payload
 
 byte_contract = build_exact_match_contract(
     validator={"kind": "none"},
@@ -329,7 +507,7 @@ exit_code, payload = run_case(
 assert exit_code == 0, f"byte exact-match run should not crash: {exit_code}"
 assert payload["ok"] is True, payload
 assert payload["score"] == 1.0, payload
-assert payload["details"]["comparison_kind"] == "byte_exact_match", payload
+assert payload["details"]["relation_scores"][0]["details"]["comparison_kind"] == "byte_exact_match", payload
 
 exit_code, payload = run_case(
     artifact_contract=byte_contract,
@@ -346,6 +524,14 @@ assert exit_code == 0, f"byte mismatch run should not crash: {exit_code}"
 assert payload["ok"] is True, payload
 assert payload["score"] == 0.0, payload
 
+exit_code, payload = run_multi_relation_exact_match_case()
+assert exit_code == 0, f"multi relation exact-match run should not crash: {exit_code}"
+assert payload["ok"] is True, payload
+assert payload["details"]["relation_count"] == 2, payload
+assert payload["score"] == 0.0, payload
+assert payload["details"]["relation_scores"][0]["score"] == 1.0, payload
+assert payload["details"]["relation_scores"][1]["score"] == 0.0, payload
+
 exit_code, payload = run_case(
     artifact_contract=csv_contract,
     metric="validation_score",
@@ -359,10 +545,11 @@ exit_code, payload = run_case(
 )
 assert exit_code == 1, f"wrong exact-match metric should fail loudly: {exit_code}"
 assert payload["ok"] is False, payload
-assert "metric=exact_match" in payload["error"], payload
+assert "structured_validation relation_plan" in payload["error"], payload
 
 invalid_kind_manifest = {
     "kind": "agora_runtime",
+    "scorer": build_official_scorer("official_exact_match"),
     "metric": "exact_match",
     "comparator": "maximize",
     "artifact_contract": csv_contract,

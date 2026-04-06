@@ -30,6 +30,15 @@ Every scorer in this repo now speaks the same canonical Agora runtime contract:
 - `/input/submission/<role>/<filename>`
 - `/output/score.json`
 
+Official scorers require `runtime-manifest.json` to declare:
+
+- `scorer.kind=official`
+- the concrete official scorer `id` and pinned `image`
+- the scorer-owned `relation_plan`
+
+They score one or more concrete artifact relations, then aggregate
+relation-level scores through the aggregation mode declared by that plan.
+
 Scorers do not support retired runtime layouts or compatibility shims.
 
 ## Scorers

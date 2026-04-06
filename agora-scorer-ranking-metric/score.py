@@ -1,8 +1,9 @@
 """
 Agora Ranking Scorer
 
-Scores a ranked CSV submission against a CSV evaluation artifact using the
-canonical Agora runtime manifest mounted at /input/runtime-manifest.json.
+Scores one or more ranked CSV submission relations against CSV evaluation
+artifacts using the canonical Agora runtime manifest mounted at
+/input/runtime-manifest.json.
 """
 
 import json
@@ -16,9 +17,10 @@ if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
 
 from runtime_contract import (
+    aggregate_relation_scores,
     load_runtime_manifest,
-    require_relation,
-    resolve_runtime_artifact,
+    require_relation_plan_template,
+    resolve_relation_artifact_sets,
 )
 
 INPUT_DIR = Path("/input")
@@ -48,6 +50,7 @@ def reject_submission(message: str, details: dict | None = None) -> None:
             "details": details or {},
         }
     )
+    raise SystemExit(0)
 
 
 def parse_csv(path: Path) -> list[dict[str, str]]:
@@ -108,38 +111,28 @@ def load_runtime_config() -> dict:
         input_dir=INPUT_DIR,
         fail_runtime=fail_runtime,
     )
-    require_relation(
-        runtime_manifest,
-        kind="tabular_alignment",
-        evaluation_role="reference",
-        submission_role="predictions",
-        fail_runtime=fail_runtime,
-    )
-    evaluation_artifact = resolve_runtime_artifact(
-        runtime_manifest,
-        lane="evaluation",
-        role="reference",
-        fail_runtime=fail_runtime,
-    )
-    submission_artifact = resolve_runtime_artifact(
-        runtime_manifest,
-        lane="submission",
-        role="predictions",
-        fail_runtime=fail_runtime,
-    )
     metric = runtime_manifest["metric"]
     if metric not in SUPPORTED_METRICS:
         fail_runtime(
             f"Unsupported metric {metric}. Next step: choose one of {','.join(sorted(SUPPORTED_METRICS))}."
         )
 
+    template = require_relation_plan_template(
+        runtime_manifest,
+        kind="tabular_alignment",
+        fail_runtime=fail_runtime,
+    )
+    relation_sets = resolve_relation_artifact_sets(
+        runtime_manifest,
+        template=template,
+        fail_runtime=fail_runtime,
+    )
+
     return {
         "metric": metric,
-        "submission": require_csv_slot(submission_artifact["slot"], "submission.predictions"),
-        "evaluation": require_csv_slot(evaluation_artifact["slot"], "evaluation.reference"),
+        "aggregation": template["aggregation"],
         "policies": runtime_manifest["policies"],
-        "evaluation_path": evaluation_artifact["path"],
-        "submission_path": submission_artifact["path"],
+        "relation_sets": relation_sets,
     }
 
 
@@ -154,7 +147,6 @@ def validate_header(
         if runtime_error:
             fail_runtime(message)
         reject_submission(message)
-        raise SystemExit(0)
 
     present_columns = list(rows[0].keys())
     present_set = set(present_columns)
@@ -172,7 +164,6 @@ def validate_header(
                 "uploaded_columns": present_columns,
             },
         )
-        raise SystemExit(0)
 
     if not contract["allow_extra"]:
         extras = [col for col in present_columns if col not in contract["required"]]
@@ -187,10 +178,12 @@ def validate_header(
                     "uploaded_columns": present_columns,
                 },
             )
-            raise SystemExit(0)
 
 
-def build_truth_map(truth_rows: list[dict[str, str]], contract: dict) -> tuple[list[str], dict[str, float]]:
+def build_truth_map(
+    truth_rows: list[dict[str, str]],
+    contract: dict,
+) -> tuple[list[str], dict[str, float]]:
     truth_ids: list[str] = []
     truth_map: dict[str, float] = {}
     id_col = contract["id"]
@@ -270,14 +263,12 @@ def summarize_submission(
             "Submission must not contain duplicate ranking ids.",
             details,
         )
-        raise SystemExit(0)
 
     if invalid_value_ids and policies["invalid_value_policy"] == "reject":
         reject_submission(
             "Submission contains non-numeric ranking scores. Next step: upload a CSV with numeric scores only.",
             details,
         )
-        raise SystemExit(0)
 
     coverage_policy = policies["coverage_policy"]
     if coverage_policy == "penalize":
@@ -289,14 +280,12 @@ def summarize_submission(
             "Submission must include exactly one ranking row for every evaluation id.",
             details,
         )
-        raise SystemExit(0)
 
     if not valid_predictions:
         reject_submission(
             "No valid ranking rows matched the evaluation bundle.",
             details,
         )
-        raise SystemExit(0)
 
     return valid_predictions, details
 
@@ -333,7 +322,11 @@ def compute_spearman(y_true: list[float], y_pred: list[float]) -> float:
     return 0.0
 
 
-def compute_ndcg(truth_ids: list[str], truth_map: dict[str, float], predictions: dict[str, float]) -> float:
+def compute_ndcg(
+    truth_ids: list[str],
+    truth_map: dict[str, float],
+    predictions: dict[str, float],
+) -> float:
     ranked_ids = sorted(predictions.keys(), key=lambda row_id: predictions[row_id], reverse=True)
     ideal_ids = sorted(truth_ids, key=lambda row_id: truth_map[row_id], reverse=True)
 
@@ -359,39 +352,55 @@ def normalize_score(metric: str, value: float) -> float:
     fail_runtime(f"Unsupported metric {metric}.")
 
 
-def main() -> None:
-    runtime_config = load_runtime_config()
-
-    evaluation_path = runtime_config["evaluation_path"]
-    submission_path = runtime_config["submission_path"]
-
-    if not evaluation_path.exists():
-        fail_runtime(f"Missing required file: {evaluation_path}")
-    if not submission_path.exists():
-        fail_runtime(f"Missing required file: {submission_path}")
+def score_relation(
+    relation_artifact_set: dict,
+    *,
+    metric: str,
+    policies: dict,
+) -> dict:
+    evaluation_artifact = relation_artifact_set["evaluation"][0]
+    submission_artifact = relation_artifact_set["submission"][0]
+    evaluation_path = evaluation_artifact["path"]
+    submission_path = submission_artifact["path"]
+    if evaluation_path is None:
+        fail_runtime(
+            f"Missing required evaluation artifact role {evaluation_artifact['role']}."
+        )
+    if submission_path is None:
+        fail_runtime(
+            f"Missing required submission artifact role {submission_artifact['role']}."
+        )
 
     truth_rows = parse_csv(evaluation_path)
     sub_rows = parse_csv(submission_path)
+    evaluation_contract = require_csv_slot(
+        evaluation_artifact["slot"],
+        f"evaluation.{evaluation_artifact['role']}",
+    )
+    submission_contract = require_csv_slot(
+        submission_artifact["slot"],
+        f"submission.{submission_artifact['role']}",
+    )
 
     validate_header(
         truth_rows,
-        runtime_config["evaluation"],
+        evaluation_contract,
         "Evaluation bundle",
         runtime_error=True,
     )
     validate_header(
         sub_rows,
-        runtime_config["submission"],
+        submission_contract,
         "Submission",
         runtime_error=False,
     )
 
-    truth_ids, truth_map = build_truth_map(truth_rows, runtime_config["evaluation"])
+    truth_ids, truth_map = build_truth_map(truth_rows, evaluation_contract)
     predictions, summary = summarize_submission(
         sub_rows,
-        runtime_config["submission"],
+        submission_contract,
         truth_map,
-        runtime_config["policies"],
+        policies,
     )
 
     y_true = [truth_map[row_id] for row_id in truth_ids if row_id in predictions]
@@ -402,26 +411,64 @@ def main() -> None:
             "No valid ranking rows matched the evaluation bundle.",
             summary,
         )
-        return
 
     spearman = compute_spearman(y_true, y_pred)
     ndcg = compute_ndcg(truth_ids, truth_map, predictions)
-    metric = runtime_config["metric"]
     selected_metric_value = spearman if metric == "spearman" else ndcg
     leaderboard_score = normalize_score(metric, selected_metric_value)
 
+    return {
+        "score": float(round(leaderboard_score, 12)),
+        "details": {
+            **summary,
+            "matched_rows": n,
+            "spearman": float(round(spearman, 12)),
+            "ndcg": float(round(ndcg, 12)),
+            "selected_metric": metric,
+            "selected_metric_value": float(round(selected_metric_value, 12)),
+            "leaderboard_score": float(round(leaderboard_score, 12)),
+        },
+    }
+
+
+def main() -> None:
+    runtime_config = load_runtime_config()
+    relation_results = []
+    relation_scores = []
+
+    for relation_artifact_set in runtime_config["relation_sets"]:
+        relation_result = score_relation(
+            relation_artifact_set,
+            metric=runtime_config["metric"],
+            policies=runtime_config["policies"],
+        )
+        relation_scores.append(relation_result["score"])
+        relation_results.append(
+            {
+                "relation_kind": relation_artifact_set["relation"]["kind"],
+                "evaluation_roles": [artifact["role"] for artifact in relation_artifact_set["evaluation"]],
+                "submission_roles": [artifact["role"] for artifact in relation_artifact_set["submission"]],
+                "score": relation_result["score"],
+                "details": relation_result["details"],
+            }
+        )
+
+    aggregated_score = aggregate_relation_scores(
+        relation_scores,
+        aggregation=runtime_config["aggregation"],
+        fail_runtime=fail_runtime,
+    )
     write_result(
         {
             "ok": True,
-            "score": float(round(leaderboard_score, 12)),
+            "score": float(round(aggregated_score, 12)),
             "details": {
-                **summary,
-                "matched_rows": n,
-                "spearman": float(round(spearman, 12)),
-                "ndcg": float(round(ndcg, 12)),
-                "selected_metric": metric,
-                "selected_metric_value": float(round(selected_metric_value, 12)),
-                "leaderboard_score": float(round(leaderboard_score, 12)),
+                "aggregation": runtime_config["aggregation"],
+                "relation_count": len(relation_results),
+                "selected_metric": runtime_config["metric"],
+                "selected_metric_value": float(round(aggregated_score, 12)),
+                "leaderboard_score": float(round(aggregated_score, 12)),
+                "relation_scores": relation_results,
             },
         }
     )

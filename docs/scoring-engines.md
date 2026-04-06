@@ -12,6 +12,13 @@ This repo targets one canonical scorer runtime contract only:
 - `/input/submission/<role>/<filename>`
 - `/output/score.json`
 
+For official images in this repo, `runtime-manifest.json` must include:
+
+- `scorer.kind=official`
+- the official scorer `id`
+- the pinned scorer `image`
+- `relation_plan`
+
 ## Boundary
 
 Agora scoring stays clean when these responsibilities remain separate:
@@ -38,9 +45,10 @@ Shared scorer-side runtime loader.
 It owns:
 
 - parsing `/input/runtime-manifest.json`
-- resolving relation declarations
+- resolving `relation_plan`
+- matching repeated relation declarations to scorer relation templates
 - resolving role-bound staged artifact paths
-- validating the declared runtime metric and policies
+- validating scorer-owned aggregation, metric, and policies
 
 If the runtime contract changes, update this file first and port all scorers in
 the same cut.
@@ -63,6 +71,8 @@ Each scorer test file should prove:
 
 - canonical runtime manifest succeeds
 - invalid runtime manifest kind fails loudly
+- missing `relation_plan` fails loudly
+- repeated relation execution aggregates correctly
 - missing required scorer relation fails loudly
 
 These are protocol regression tests, not dataset fixtures.
@@ -83,6 +93,7 @@ These are protocol regression tests, not dataset fixtures.
 - Keep runtime parsing centralized.
 - Keep authoring concerns out of this repo.
 - Prefer one explicit contract over compatibility shims.
+- Keep relation aggregation owned by `relation_plan`, not ad hoc scorer code.
 
 ## Release Rule
 

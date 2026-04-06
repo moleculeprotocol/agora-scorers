@@ -1,19 +1,8 @@
 """
-Agora Exact-Match Scorer
+Agora Artifact Compare Scorer
 
-Supports deterministic exact-match scoring for:
-  - CSV answer artifacts compared against a reference CSV
-  - JSON answer artifacts compared against a reference JSON document
-  - structured JSON records validated against a hidden structured-record rubric
-  - arbitrary file artifacts compared byte-for-byte against a reference artifact
-
-Input:
-  /input/runtime-manifest.json
-  /input/evaluation/<role>/<filename>
-  /input/submission/<role>/<filename>
-
-Output:
-  /output/score.json
+Supports deterministic exact-match scoring for CSV, JSON, and byte artifacts,
+plus structured JSON validation, across one or more declared relations.
 """
 
 import csv
@@ -29,10 +18,10 @@ if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
 
 from runtime_contract import (
-    find_relation,
+    aggregate_relation_scores,
     load_runtime_manifest,
-    require_relation,
-    resolve_runtime_artifact,
+    require_relation_plan_template,
+    resolve_relation_artifact_sets,
 )
 
 INPUT_DIR = Path("/input")
@@ -91,13 +80,9 @@ def resolve_exact_match_mode(evaluation_slot: dict, submission_slot: dict) -> st
         )
 
     if evaluation_kind == "csv_columns":
-        require_csv_slot(evaluation_slot, "evaluation.reference")
-        require_csv_slot(submission_slot, "submission.answer")
         return "csv_exact_match"
-
     if evaluation_kind in {"json_document", "json_schema"}:
         return "json_exact_match"
-
     if evaluation_kind == "none":
         return "byte_exact_match"
 
@@ -112,77 +97,67 @@ def load_runtime_config() -> dict:
         fail_runtime=fail_runtime,
     )
     metric = runtime_manifest["metric"]
-
-    structured_relation = find_relation(
-        runtime_manifest,
-        kind="structured_validation",
-        evaluation_role="rubric",
-        submission_role="record",
-    )
-    exact_match_relation = None if structured_relation else find_relation(
-        runtime_manifest,
-        kind="exact_match",
-        evaluation_role="reference",
-        submission_role="answer",
-    )
-
-    if structured_relation is not None:
-        if metric != "validation_score":
-            fail_runtime(
-                "official structured-record scorer requires metric=validation_score."
-            )
-        evaluation_artifact = resolve_runtime_artifact(
-            runtime_manifest,
-            lane="evaluation",
-            role="rubric",
-            fail_runtime=fail_runtime,
-        )
-        submission_artifact = resolve_runtime_artifact(
-            runtime_manifest,
-            lane="submission",
-            role="record",
-            fail_runtime=fail_runtime,
-        )
-        evaluation_kind = evaluation_artifact["slot"].get("validator", {}).get("kind")
-        submission_kind = submission_artifact["slot"].get("validator", {}).get("kind")
-        if evaluation_kind not in {"json_document", "json_schema"}:
-            fail_runtime(
-                "official structured-record scorer requires rubric validator.kind=json_document or json_schema."
-            )
-        if submission_kind not in {"json_document", "json_schema"}:
-            fail_runtime(
-                "official structured-record scorer requires record validator.kind=json_document or json_schema."
-            )
-        comparison_kind = "structured_validation"
-    elif exact_match_relation is not None:
-        if metric != "exact_match":
-            fail_runtime("official exact-match scorer requires metric=exact_match.")
-        evaluation_artifact = resolve_runtime_artifact(
-            runtime_manifest,
-            lane="evaluation",
-            role="reference",
-            fail_runtime=fail_runtime,
-        )
-        submission_artifact = resolve_runtime_artifact(
-            runtime_manifest,
-            lane="submission",
-            role="answer",
-            fail_runtime=fail_runtime,
-        )
-        comparison_kind = resolve_exact_match_mode(
-            evaluation_artifact["slot"],
-            submission_artifact["slot"],
-        )
-    else:
-        fail_runtime(
-            "Runtime manifest must declare either exact_match(reference, answer) or structured_validation(rubric, record)."
-        )
-
-    return {
-        "comparison_kind": comparison_kind,
-        "evaluation_path": evaluation_artifact["path"],
-        "submission_path": submission_artifact["path"],
+    template_kinds = {
+        template["kind"] for template in runtime_manifest["relation_plan"]["templates"]
     }
+    if metric == "validation_score":
+        if "structured_validation" not in template_kinds:
+            fail_runtime(
+                "official structured-record scorer requires a structured_validation relation_plan when metric=validation_score."
+            )
+        template = require_relation_plan_template(
+            runtime_manifest,
+            kind="structured_validation",
+            fail_runtime=fail_runtime,
+        )
+        relation_sets = resolve_relation_artifact_sets(
+            runtime_manifest,
+            template=template,
+            fail_runtime=fail_runtime,
+        )
+        for relation_set in relation_sets:
+            evaluation_artifact = relation_set["evaluation"][0]
+            submission_artifact = relation_set["submission"][0]
+            evaluation_kind = evaluation_artifact["slot"].get("validator", {}).get("kind")
+            submission_kind = submission_artifact["slot"].get("validator", {}).get("kind")
+            if evaluation_kind not in {"json_document", "json_schema"}:
+                fail_runtime(
+                    "official structured-record scorer requires rubric validator.kind=json_document or json_schema."
+                )
+            if submission_kind not in {"json_document", "json_schema"}:
+                fail_runtime(
+                    "official structured-record scorer requires record validator.kind=json_document or json_schema."
+                )
+        return {
+            "comparison_kind": "structured_validation",
+            "aggregation": template["aggregation"],
+            "relation_sets": relation_sets,
+        }
+
+    if metric == "exact_match":
+        if "exact_match" not in template_kinds:
+            fail_runtime(
+                "official exact-match scorer requires an exact_match relation_plan when metric=exact_match."
+            )
+        template = require_relation_plan_template(
+            runtime_manifest,
+            kind="exact_match",
+            fail_runtime=fail_runtime,
+        )
+        relation_sets = resolve_relation_artifact_sets(
+            runtime_manifest,
+            template=template,
+            fail_runtime=fail_runtime,
+        )
+        return {
+            "comparison_kind": "exact_match",
+            "aggregation": template["aggregation"],
+            "relation_sets": relation_sets,
+        }
+
+    fail_runtime(
+        "official artifact-compare scorer requires metric=exact_match or metric=validation_score."
+    )
 
 
 def read_csv_rows(path: Path, label: str, runtime_error: bool) -> list[dict[str, str]]:
@@ -217,29 +192,23 @@ def is_numeric_value(value: str | None) -> bool:
     return True
 
 
-def compare_csv_exact_match(evaluation_path: Path, submission_path: Path) -> None:
+def compare_csv_exact_match(evaluation_path: Path, submission_path: Path) -> dict:
     tolerance = float(os.getenv("AGORA_TOLERANCE", "0.001"))
     truth = read_csv_rows(evaluation_path, "Evaluation bundle", True)
     submission = read_csv_rows(submission_path, "Submission", False)
 
     if is_empty_csv(truth):
-        deterministic_json_write(
-            {
-                "ok": True,
-                "details": {
-                    "comparison_kind": "csv_exact_match",
-                    "comparable_rows": 0,
-                    "mismatched_row_penalty": 0,
-                    "selected_metric": "exact_match",
-                    "selected_metric_value": 1.0,
-                    "tolerance": tolerance,
-                },
-                "matched_rows": 0,
-                "score": 1.0,
-                "total_rows": 0,
-            }
-        )
-        return
+        return {
+            "score": 1.0,
+            "details": {
+                "comparison_kind": "csv_exact_match",
+                "comparable_rows": 0,
+                "mismatched_row_penalty": 0,
+                "selected_metric": "exact_match",
+                "selected_metric_value": 1.0,
+                "tolerance": tolerance,
+            },
+        }
 
     truth_columns = list(truth[0].keys())
     submission_columns = list(submission[0].keys()) if submission else []
@@ -283,22 +252,19 @@ def compare_csv_exact_match(evaluation_path: Path, submission_path: Path) -> Non
     denominator = total_rows if total_rows > 0 else max(len(submission), 1)
     score = max(matched_rows - mismatched_row_penalty, 0) / denominator
 
-    deterministic_json_write(
-        {
-            "ok": True,
-            "details": {
-                "comparison_kind": "csv_exact_match",
-                "comparable_rows": comparable_rows,
-                "mismatched_row_penalty": mismatched_row_penalty,
-                "selected_metric": "exact_match",
-                "selected_metric_value": float(round(score, 12)),
-                "tolerance": tolerance,
-            },
+    return {
+        "score": float(round(score, 12)),
+        "details": {
+            "comparison_kind": "csv_exact_match",
+            "comparable_rows": comparable_rows,
+            "mismatched_row_penalty": mismatched_row_penalty,
+            "selected_metric": "exact_match",
+            "selected_metric_value": float(round(score, 12)),
+            "tolerance": tolerance,
             "matched_rows": matched_rows,
-            "score": float(round(score, 12)),
             "total_rows": int(total_rows),
-        }
-    )
+        },
+    }
 
 
 def read_json_document(path: Path, label: str, runtime_error: bool):
@@ -315,29 +281,25 @@ def read_json_document(path: Path, label: str, runtime_error: bool):
         if runtime_error:
             fail_runtime(message)
         reject_submission(message)
-
     raise AssertionError("unreachable")
 
 
-def compare_json_exact_match(evaluation_path: Path, submission_path: Path) -> None:
+def compare_json_exact_match(evaluation_path: Path, submission_path: Path) -> dict:
     truth = read_json_document(evaluation_path, "Evaluation bundle", True)
     submission = read_json_document(submission_path, "Submission", False)
     matched = truth == submission
     score = 1.0 if matched else 0.0
 
-    deterministic_json_write(
-        {
-            "ok": True,
-            "details": {
-                "comparison_kind": "json_exact_match",
-                "selected_metric": "exact_match",
-                "selected_metric_value": score,
-            },
+    return {
+        "score": score,
+        "details": {
+            "comparison_kind": "json_exact_match",
+            "selected_metric": "exact_match",
+            "selected_metric_value": score,
             "matched_rows": 1 if matched else 0,
-            "score": score,
             "total_rows": 1,
-        }
-    )
+        },
+    }
 
 
 def normalize_string_list(value: object) -> list[str]:
@@ -376,9 +338,7 @@ def parse_structured_record_rubric(document: object) -> dict[str, object]:
     required_fields = normalize_string_list(
         document.get("required_fields") or document.get("required_sections")
     )
-    non_empty_array_fields = normalize_string_list(
-        document.get("non_empty_array_fields")
-    )
+    non_empty_array_fields = normalize_string_list(document.get("non_empty_array_fields"))
     allowed_string_values = parse_allowed_string_values(
         document.get("allowed_string_values")
     )
@@ -401,8 +361,9 @@ def parse_structured_record_rubric(document: object) -> dict[str, object]:
 
 
 def compare_structured_record_validation(
-    evaluation_path: Path, submission_path: Path
-) -> None:
+    evaluation_path: Path,
+    submission_path: Path,
+) -> dict:
     rubric_document = read_json_document(evaluation_path, "Evaluation bundle", True)
     submission = read_json_document(submission_path, "Submission", False)
     if not isinstance(submission, dict):
@@ -446,22 +407,17 @@ def compare_structured_record_validation(
     )
     score = checks_passed / checks_total
 
-    deterministic_json_write(
-        {
-            "ok": True,
-            "details": {
-                "comparison_kind": "structured_validation",
-                "selected_metric": "validation_score",
-                "selected_metric_value": float(round(score, 12)),
-                "checks_passed": checks_passed,
-                "checks_total": checks_total,
-                "failed_checks": failed_checks,
-            },
-            "matched_rows": checks_passed,
-            "score": float(round(score, 12)),
-            "total_rows": checks_total,
-        }
-    )
+    return {
+        "score": float(round(score, 12)),
+        "details": {
+            "comparison_kind": "structured_validation",
+            "selected_metric": "validation_score",
+            "selected_metric_value": float(round(score, 12)),
+            "checks_passed": checks_passed,
+            "checks_total": checks_total,
+            "failed_checks": failed_checks,
+        },
+    }
 
 
 def read_binary_document(path: Path, label: str, runtime_error: bool) -> bytes:
@@ -478,49 +434,111 @@ def read_binary_document(path: Path, label: str, runtime_error: bool) -> bytes:
         if runtime_error:
             fail_runtime(message)
         reject_submission(message)
-
     raise AssertionError("unreachable")
 
 
-def compare_byte_exact_match(evaluation_path: Path, submission_path: Path) -> None:
+def compare_byte_exact_match(evaluation_path: Path, submission_path: Path) -> dict:
     truth = read_binary_document(evaluation_path, "Evaluation bundle", True)
     submission = read_binary_document(submission_path, "Submission", False)
     matched = truth == submission
     score = 1.0 if matched else 0.0
 
-    deterministic_json_write(
-        {
-            "ok": True,
-            "details": {
-                "comparison_kind": "byte_exact_match",
-                "selected_metric": "exact_match",
-                "selected_metric_value": score,
-            },
+    return {
+        "score": score,
+        "details": {
+            "comparison_kind": "byte_exact_match",
+            "selected_metric": "exact_match",
+            "selected_metric_value": score,
             "matched_rows": 1 if matched else 0,
-            "score": score,
             "total_rows": 1,
-        }
+        },
+    }
+
+
+def score_relation(
+    relation_artifact_set: dict,
+    *,
+    comparison_kind: str,
+) -> dict:
+    evaluation_artifact = relation_artifact_set["evaluation"][0]
+    submission_artifact = relation_artifact_set["submission"][0]
+    evaluation_path = evaluation_artifact["path"]
+    submission_path = submission_artifact["path"]
+    if evaluation_path is None:
+        fail_runtime(
+            f"Missing required evaluation artifact role {evaluation_artifact['role']}."
+        )
+    if submission_path is None:
+        fail_runtime(
+            f"Missing required submission artifact role {submission_artifact['role']}."
+        )
+
+    if comparison_kind == "structured_validation":
+        return compare_structured_record_validation(evaluation_path, submission_path)
+
+    exact_match_mode = resolve_exact_match_mode(
+        evaluation_artifact["slot"],
+        submission_artifact["slot"],
     )
+    if exact_match_mode == "csv_exact_match":
+        require_csv_slot(
+            evaluation_artifact["slot"],
+            f"evaluation.{evaluation_artifact['role']}",
+        )
+        require_csv_slot(
+            submission_artifact["slot"],
+            f"submission.{submission_artifact['role']}",
+        )
+        return compare_csv_exact_match(evaluation_path, submission_path)
+    if exact_match_mode == "json_exact_match":
+        return compare_json_exact_match(evaluation_path, submission_path)
+    return compare_byte_exact_match(evaluation_path, submission_path)
 
 
 def main() -> None:
     runtime_config = load_runtime_config()
-    evaluation_path = runtime_config["evaluation_path"]
-    submission_path = runtime_config["submission_path"]
+    relation_results = []
+    relation_scores = []
 
-    if runtime_config["comparison_kind"] == "csv_exact_match":
-        compare_csv_exact_match(evaluation_path, submission_path)
-        return
+    for relation_artifact_set in runtime_config["relation_sets"]:
+        relation_result = score_relation(
+            relation_artifact_set,
+            comparison_kind=runtime_config["comparison_kind"],
+        )
+        relation_scores.append(relation_result["score"])
+        relation_results.append(
+            {
+                "relation_kind": relation_artifact_set["relation"]["kind"],
+                "evaluation_roles": [artifact["role"] for artifact in relation_artifact_set["evaluation"]],
+                "submission_roles": [artifact["role"] for artifact in relation_artifact_set["submission"]],
+                "score": relation_result["score"],
+                "details": relation_result["details"],
+            }
+        )
 
-    if runtime_config["comparison_kind"] == "json_exact_match":
-        compare_json_exact_match(evaluation_path, submission_path)
-        return
-
-    if runtime_config["comparison_kind"] == "structured_validation":
-        compare_structured_record_validation(evaluation_path, submission_path)
-        return
-
-    compare_byte_exact_match(evaluation_path, submission_path)
+    aggregated_score = aggregate_relation_scores(
+        relation_scores,
+        aggregation=runtime_config["aggregation"],
+        fail_runtime=fail_runtime,
+    )
+    deterministic_json_write(
+        {
+            "ok": True,
+            "score": float(round(aggregated_score, 12)),
+            "details": {
+                "aggregation": runtime_config["aggregation"],
+                "relation_count": len(relation_results),
+                "comparison_kind": runtime_config["comparison_kind"],
+                "selected_metric": (
+                    "validation_score"
+                    if runtime_config["comparison_kind"] == "structured_validation"
+                    else "exact_match"
+                ),
+                "selected_metric_value": float(round(aggregated_score, 12)),
+                "relation_scores": relation_results,
+            },
+        }
+    )
 
 
 if __name__ == "__main__":
