@@ -24,6 +24,7 @@ permissions:
 
 env:
   GHCR_NAMESPACE: andymolecule
+  OFFICIAL_RUNTIME_PROFILE_ID: official_compiled_runtime
 
 jobs:
   test:
@@ -79,11 +80,19 @@ jobs:
 
       - name: Export release metadata
         run: |
+          if [ -z "${{ steps.build-push.outputs.digest }}" ]; then
+            echo "Missing build digest output. Next step: verify docker/build-push-action emitted the canonical digest and retry." >&2
+            exit 1
+          fi
+
           cat <<EOF > official-runtime-release.json
           {
+            "profile_id": "${{ env.OFFICIAL_RUNTIME_PROFILE_ID }}",
             "image": "ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}",
+            "image_ref": "ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}@${{ steps.build-push.outputs.digest }}",
             "digest": "${{ steps.build-push.outputs.digest }}",
             "tags": ["latest", "sha-${{ github.sha }}"],
+            "platforms": ["linux/amd64", "linux/arm64"],
             "commit": "${{ github.sha }}",
             "build_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
