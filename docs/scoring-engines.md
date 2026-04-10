@@ -139,3 +139,37 @@ If the scorer runtime contract changes, cut straight to the new contract and
 roll the official runtime digest forward with the new image. Do not keep
 parallel official runtime protocols unless there is an explicit migration
 requirement.
+
+## Orchestration vs Execution
+
+Multi-step orchestration and the single-invocation image serve different roles
+and live in different repos.
+
+### Pipeline orchestration (main repo)
+
+The main Agora repo pipeline owns scheduling, fan-out, retry, and
+proof-of-score publication. It decides when a scorer runs, how many
+concurrently, and what to do with the result. This includes worker queue
+management, timeout enforcement, and integration with the settlement layer.
+
+### Image execution (this repo)
+
+The image published from this repo executes one staged compiled program per
+invocation. It receives mounted inputs via the V2 contract, runs the
+deterministic scoring logic, and writes `/output/score.json`. It has no
+knowledge of queue depth, retries, or downstream consumers.
+
+### Why the separation matters
+
+Keeping orchestration out of the image means the scorer binary stays
+deterministic and reproducible regardless of infrastructure changes. A
+scheduler migration, queue backend swap, or retry policy change never touches
+the scorer image. Conversely, a scoring logic update never risks breaking
+pipeline plumbing.
+
+The publish workflow in this repo (`.github/workflows/publish.yml`) produces
+the image and emits a release artifact (`official-runtime-release.json`) with
+the image digest. The main repo deployment pipeline consumes that digest to
+update its runtime profile registry, closing the loop without coupling the two
+repos' release cadences.
+
