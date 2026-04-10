@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Run scorer regression tests
         run: bash scripts/run-scorer-tests.sh
@@ -50,23 +50,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
       - name: Build and push ${{ matrix.name }}
-        uses: docker/build-push-action@v6
+        id: build-push
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -75,3 +76,23 @@ jobs:
           tags: |
             ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}:latest
             ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}:sha-${{ github.sha }}
+
+      - name: Export release metadata
+        run: |
+          cat <<EOF > official-runtime-release.json
+          {
+            "image": "ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}",
+            "digest": "${{ steps.build-push.outputs.digest }}",
+            "tags": ["latest", "sha-${{ github.sha }}"],
+            "commit": "${{ github.sha }}",
+            "build_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cat official-runtime-release.json
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: official-runtime-release-${{ matrix.name }}
+          path: official-runtime-release.json
+          retention-days: 90
