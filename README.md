@@ -116,13 +116,13 @@ image. The guard in `scripts/check-scorer-containers.mjs` enforces that rule.
 
 ## Published Image
 
-The official runtime publishes to `ghcr.io/andymolecule/`.
+The official runtime publishes to `ghcr.io/moleculeprotocol/`.
 
 Convenience tags:
 
 ```bash
-docker pull ghcr.io/andymolecule/agora-scorer-compiled:latest
-docker pull ghcr.io/andymolecule/agora-scorer-compiled:sha-<git-commit>
+docker pull ghcr.io/moleculeprotocol/agora-scorer-compiled:latest
+docker pull ghcr.io/moleculeprotocol/agora-scorer-compiled:sha-<git-commit>
 ```
 
 Agora itself must bind the runtime profile to an immutable digest, not a
@@ -178,8 +178,8 @@ The Docker build context is the repo root so the shared runtime helpers in
 
 ## Related Links
 
-- [Agora main repo](https://github.com/andymolecule/Agora)
-- [Runtime profile registry](https://github.com/andymolecule/Agora/blob/main/packages/common/src/runtime-profile-registry.ts)
-- [Poster/scorer V2 contract](https://github.com/andymolecule/Agora/blob/main/docs/specs/poster-scorer-v2-contract.md)
-- [Agora protocol](https://github.com/andymolecule/Agora/blob/main/docs/protocol.md)
+- [Agora main repo](https://github.com/moleculeprotocol/Agora)
+- [Runtime profile registry](https://github.com/moleculeprotocol/Agora/blob/main/packages/common/src/runtime-profile-registry.ts)
+- [Poster/scorer V2 contract](https://github.com/moleculeprotocol/Agora/blob/main/docs/specs/poster-scorer-v2-contract.md)
+- [Agora protocol](https://github.com/moleculeprotocol/Agora/blob/main/docs/protocol.md)
 - [Scoring extension guide](./docs/scoring-engines.md)

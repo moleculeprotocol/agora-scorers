@@ -23,7 +23,7 @@ permissions:
   packages: write
 
 env:
-  GHCR_NAMESPACE: andymolecule
+  GHCR_NAMESPACE: moleculeprotocol
   OFFICIAL_RUNTIME_PROFILE_ID: official_compiled_runtime
 
 jobs:

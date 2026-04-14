@@ -1,8 +1,8 @@
 FROM python:3.11.9-slim
 
-LABEL org.opencontainers.image.source="https://github.com/andymolecule/agora-scorers" \
+LABEL org.opencontainers.image.source="https://github.com/moleculeprotocol/agora-scorers" \
       org.opencontainers.image.description="Agora official compiled deterministic scorer runtime" \
-      org.opencontainers.image.url="https://github.com/andymolecule/agora-scorers/tree/main/agora-scorer-compiled" \
+      org.opencontainers.image.url="https://github.com/moleculeprotocol/agora-scorers/tree/main/agora-scorer-compiled" \
       org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app

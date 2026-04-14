@@ -9,7 +9,7 @@ def build_official_runtime_profile(
     return {
         "kind": "official",
         "profile_id": profile_id,
-        "image": "ghcr.io/andymolecule/agora-scorer-compiled@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "image": "ghcr.io/moleculeprotocol/agora-scorer-compiled@sha256:1111111111111111111111111111111111111111111111111111111111111111",
         "limits": {
             "memory": "2g",
             "cpus": "2",
