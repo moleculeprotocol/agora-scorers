@@ -4,7 +4,7 @@
   "description": "Standalone third-party replay verifier for Agora scorer proofs.",
   "type": "module",
   "bin": {
-    "agora-replay": "./bin/agora-replay.js"
+    "agora-replay": "bin/agora-replay.js"
   },
   "engines": {
     "node": ">=20"
