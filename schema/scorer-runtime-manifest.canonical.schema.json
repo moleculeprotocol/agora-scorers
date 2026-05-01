@@ -1,0 +1,1116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Canonical machine-readable contract for /input/runtime-manifest.json inside Agora scorer containers.",
+  "properties": {
+    "artifact_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluation": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "file": {
+                "additionalProperties": false,
+                "properties": {
+                  "extension": {
+                    "minLength": 1,
+                    "pattern": "^\\.[A-Za-z0-9._+-]+$",
+                    "type": "string"
+                  },
+                  "max_bytes": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 262144000,
+                    "type": "integer"
+                  },
+                  "mime_type": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "max_bytes"
+                ],
+                "type": "object"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "role": {
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "validator": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "none"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "allow_extra": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "kind": {
+                        "enum": [
+                          "csv_columns"
+                        ],
+                        "type": "string"
+                      },
+                      "record_key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "required": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "value_field": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "required"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "json_document"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "json_schema"
+                        ],
+                        "type": "string"
+                      },
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "additionalProperties": {},
+                            "type": "object"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "schema"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "archive_layout"
+                        ],
+                        "type": "string"
+                      },
+                      "manifest_file": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "path_rules": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "required_paths": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "required_paths",
+                      "path_rules"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "role",
+              "required",
+              "description",
+              "file",
+              "validator"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "relations": {
+          "default": [],
+          "items": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "evaluation_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "tabular_alignment"
+                    ],
+                    "type": "string"
+                  },
+                  "submission_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evaluation_role",
+                  "submission_role"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "evaluation_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "exact_match"
+                    ],
+                    "type": "string"
+                  },
+                  "submission_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evaluation_role",
+                  "submission_role"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "harness_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "execute_against"
+                    ],
+                    "type": "string"
+                  },
+                  "solution_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "harness_role",
+                  "solution_role"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "evaluation_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "structured_validation"
+                    ],
+                    "type": "string"
+                  },
+                  "submission_role": {
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "evaluation_role",
+                  "submission_role"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "submission": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "file": {
+                "additionalProperties": false,
+                "properties": {
+                  "extension": {
+                    "minLength": 1,
+                    "pattern": "^\\.[A-Za-z0-9._+-]+$",
+                    "type": "string"
+                  },
+                  "max_bytes": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 262144000,
+                    "type": "integer"
+                  },
+                  "mime_type": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "max_bytes"
+                ],
+                "type": "object"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "role": {
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "validator": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "none"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "allow_extra": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "kind": {
+                        "enum": [
+                          "csv_columns"
+                        ],
+                        "type": "string"
+                      },
+                      "record_key": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "required": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "value_field": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "required"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "json_document"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "json_schema"
+                        ],
+                        "type": "string"
+                      },
+                      "schema": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "additionalProperties": {},
+                            "type": "object"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "schema"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "archive_layout"
+                        ],
+                        "type": "string"
+                      },
+                      "manifest_file": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "path_rules": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "required_paths": {
+                        "items": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "required_paths",
+                      "path_rules"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "role",
+              "required",
+              "description",
+              "file",
+              "validator"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "evaluation",
+        "submission"
+      ],
+      "type": "object"
+    },
+    "artifacts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "file_name": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lane": {
+            "enum": [
+              "evaluation",
+              "submission"
+            ],
+            "type": "string"
+          },
+          "mime_type": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "relative_path": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "role": {
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size_bytes": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "validator": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "none"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "allow_extra": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "kind": {
+                    "enum": [
+                      "csv_columns"
+                    ],
+                    "type": "string"
+                  },
+                  "record_key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "required": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "value_field": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "required"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "json_document"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "json_schema"
+                    ],
+                    "type": "string"
+                  },
+                  "schema": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "additionalProperties": {},
+                        "type": "object"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "schema"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "archive_layout"
+                    ],
+                    "type": "string"
+                  },
+                  "manifest_file": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "path_rules": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "required_paths": {
+                    "items": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "required_paths",
+                  "path_rules"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "lane",
+          "role",
+          "required",
+          "present",
+          "validator"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "evaluation_bindings": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "artifact"
+            ],
+            "type": "string"
+          },
+          "role": {
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "uri": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "role"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "final_score_key": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "runtime_manifest"
+      ],
+      "type": "string"
+    },
+    "objective": {
+      "enum": [
+        "maximize",
+        "minimize"
+      ],
+      "type": "string"
+    },
+    "policies": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage_policy": {
+          "enum": [
+            "reject",
+            "ignore",
+            "penalize"
+          ],
+          "type": "string"
+        },
+        "duplicate_id_policy": {
+          "enum": [
+            "reject",
+            "ignore"
+          ],
+          "type": "string"
+        },
+        "invalid_value_policy": {
+          "enum": [
+            "reject",
+            "ignore"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "coverage_policy",
+        "duplicate_id_policy",
+        "invalid_value_policy"
+      ],
+      "type": "object"
+    },
+    "runtime_profile": {
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "minLength": 1,
+          "pattern": "^.+@sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "official"
+          ],
+          "type": "string"
+        },
+        "limits": {
+          "additionalProperties": false,
+          "properties": {
+            "cpus": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "memory": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "pids": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "memory",
+            "cpus",
+            "pids",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        "profile_id": {
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_:-]*$",
+          "type": "string"
+        },
+        "supported_program_abi_versions": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$",
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "profile_id",
+        "image",
+        "limits"
+      ],
+      "type": "object"
+    },
+    "scorer_result_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_additional_details": {
+          "default": true,
+          "type": "boolean"
+        },
+        "bonuses": {
+          "default": [],
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "value_type": {
+                    "default": "number",
+                    "enum": [
+                      "number",
+                      "integer",
+                      "string",
+                      "boolean"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "dimensions": {
+          "default": [],
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "value_type": {
+                    "default": "number",
+                    "enum": [
+                      "number",
+                      "integer",
+                      "string",
+                      "boolean"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "penalties": {
+          "default": [],
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "value_type": {
+                    "default": "number",
+                    "enum": [
+                      "number",
+                      "integer",
+                      "string",
+                      "boolean"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "summary_fields": {
+          "default": [],
+          "items": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "key": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "value_type": {
+                    "default": "number",
+                    "enum": [
+                      "number",
+                      "integer",
+                      "string",
+                      "boolean"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "scoring_assets": {
+      "default": [],
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "abi_version": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artifact_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "entrypoint": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "program",
+              "config",
+              "bundle",
+              "document"
+            ],
+            "type": "string"
+          },
+          "relative_path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role",
+          "kind",
+          "artifact_id",
+          "relative_path",
+          "file_name",
+          "size_bytes",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "kind",
+    "runtime_profile",
+    "artifact_contract",
+    "artifacts",
+    "objective",
+    "final_score_key",
+    "scorer_result_schema",
+    "policies"
+  ],
+  "title": "Agora Scorer Runtime Manifest",
+  "type": "object"
+}

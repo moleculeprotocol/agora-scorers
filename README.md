@@ -76,6 +76,7 @@ program asset and writes one `/output/score.json`.
 common/                     shared scorer runtime helpers
 agora-scorer-compiled/      official compiled runtime image
 docs/                       scorer-side extension notes
+schema/                     vendored Agora main canonical runtime schema
 scripts/                    local test helpers and container guards
 ```
 
@@ -162,9 +163,13 @@ surfaces instead of copying capability lists into this repo:
 The publish workflow:
 
 - runs scorer regression tests
+- rejects retired scorer vocabulary in active public-repo surfaces
 - checks that the official runtime image stays code-only
+- verifies the vendored canonical runtime manifest schema hash
 - builds multi-arch images for `linux/amd64` and `linux/arm64`
 - publishes `:latest` and `:sha-<git-commit>` tags to GHCR
+- emits `runtime_manifest_schema_sha256` and
+  `supported_program_abi_versions` in `official-runtime-release.json`
 
 The Docker build context is the repo root so the shared runtime helpers in
 `common/` are available to the image.

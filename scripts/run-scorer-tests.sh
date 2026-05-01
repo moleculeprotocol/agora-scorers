@@ -17,5 +17,5 @@ run_step() {
 run_step "Official compiled runtime regression fixture" \
   python3 agora-scorer-compiled/test_score.py
 
-run_step "Runtime manifest split fixture" \
+run_step "Runtime manifest canonical schema parity fixture" \
   python3 common/test_runtime_manifest.py

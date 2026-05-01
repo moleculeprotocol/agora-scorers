@@ -188,11 +188,13 @@ def _require_runtime_profile(
         fail_runtime=fail_runtime,
     )
     limits = _require_mapping(runtime_profile, "limits", fail_runtime=fail_runtime)
-    supported_program_abi_versions = _require_list(
-        runtime_profile,
-        "supported_program_abi_versions",
-        fail_runtime=fail_runtime,
+    supported_program_abi_versions = runtime_profile.get(
+        "supported_program_abi_versions", []
     )
+    if not isinstance(supported_program_abi_versions, list):
+        fail_runtime(
+            "Runtime manifest runtime_profile.supported_program_abi_versions must be an array when present."
+        )
 
     for key in supported_program_abi_versions:
         if not isinstance(key, str) or not key.strip():
@@ -368,11 +370,9 @@ def _require_scoring_assets(
     *,
     fail_runtime: Callable[[str], None],
 ) -> list[dict[str, Any]]:
-    scoring_assets = _require_list(
-        runtime_manifest,
-        "scoring_assets",
-        fail_runtime=fail_runtime,
-    )
+    scoring_assets = runtime_manifest.get("scoring_assets", [])
+    if not isinstance(scoring_assets, list):
+        fail_runtime("Runtime manifest scoring_assets must be an array when present.")
     normalized: list[dict[str, Any]] = []
     seen_artifact_ids: set[str] = set()
 
@@ -523,9 +523,11 @@ def load_runtime_manifest(
     if not isinstance(evaluation_bindings, list):
         fail_runtime("Runtime manifest evaluation_bindings must be an array.")
 
-    scorer_result_schema = runtime_manifest.get("scorer_result_schema")
-    if scorer_result_schema is not None and not isinstance(scorer_result_schema, dict):
-        fail_runtime("Runtime manifest scorer_result_schema must be an object.")
+    scorer_result_schema = _require_mapping(
+        runtime_manifest,
+        "scorer_result_schema",
+        fail_runtime=fail_runtime,
+    )
 
     policies = _require_mapping(
         runtime_manifest,
