@@ -10,6 +10,7 @@ on:
       - "agora-scorer-compiled/**"
       - "docs/**"
       - "README.md"
+      - "schema/**"
       - ".github/workflows/publish.yml"
       - "scripts/**"
 
@@ -32,6 +33,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Reject retired scorer vocabulary
+        run: |
+          scan_targets=(README.md docs common agora-scorer-compiled scripts .github)
+          if [ -d examples ]; then
+            scan_targets+=(examples)
+          fi
+
+          if grep -R -n -F -f scripts/retired-vocabulary.txt --exclude=retired-vocabulary.txt --exclude-dir=.git "${scan_targets[@]}"; then
+            echo "Retired scorer vocabulary found. Next step: route scorer vocabulary to Agora main capability discovery instead of reintroducing stale public image terms." >&2
+            exit 1
+          fi
+
       - name: Run scorer regression tests
         run: bash scripts/run-scorer-tests.sh
 
@@ -51,6 +64,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read runtime contract metadata
+        id: contract-metadata
+        run: |
+          runtime_manifest_schema_sha256="$(sha256sum schema/scorer-runtime-manifest.canonical.schema.json | cut -d ' ' -f1)"
+          recorded_schema_sha256="$(cut -d ' ' -f1 schema/scorer-runtime-manifest.canonical.sha256)"
+          if [ "$runtime_manifest_schema_sha256" != "$recorded_schema_sha256" ]; then
+            echo "Canonical runtime manifest schema hash mismatch. Next step: revendor the Agora main artifact and update schema/scorer-runtime-manifest.canonical.sha256." >&2
+            exit 1
+          fi
+
+          {
+            echo "runtime_manifest_schema_sha256=${runtime_manifest_schema_sha256}"
+            echo "supported_program_abi_versions=python-v1"
+            echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
@@ -76,6 +105,9 @@ jobs:
           tags: |
             ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}:latest
             ghcr.io/${{ env.GHCR_NAMESPACE }}/${{ matrix.name }}:sha-${{ github.sha }}
+          labels: |
+            agora.runtime-manifest-schema-sha256=${{ steps.contract-metadata.outputs.runtime_manifest_schema_sha256 }}
+            agora.python-program-abi=${{ steps.contract-metadata.outputs.supported_program_abi_versions }}
 
       - name: Export release metadata
         run: |
@@ -92,8 +124,10 @@ jobs:
             "digest": "${{ steps.build-push.outputs.digest }}",
             "tags": ["latest", "sha-${{ github.sha }}"],
             "platforms": ["linux/amd64", "linux/arm64"],
+            "runtime_manifest_schema_sha256": "${{ steps.contract-metadata.outputs.runtime_manifest_schema_sha256 }}",
+            "supported_program_abi_versions": ["${{ steps.contract-metadata.outputs.supported_program_abi_versions }}"],
             "commit": "${{ github.sha }}",
-            "build_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            "build_time": "${{ steps.contract-metadata.outputs.build_time }}"
           }
           EOF
           cat official-runtime-release.json

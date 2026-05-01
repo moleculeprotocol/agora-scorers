@@ -116,6 +116,11 @@ def write_runtime_manifest(
     evaluation_bindings: list[dict] | None = None,
     policies: dict | None = None,
 ) -> dict:
+    effective_scorer_result_schema = scorer_result_schema or {
+        "dimensions": [final_score_key],
+        "summary_fields": [],
+        "allow_additional_details": True,
+    }
     runtime_manifest = {
         "kind": "runtime_manifest",
         "runtime_profile": runtime_profile,
@@ -125,6 +130,7 @@ def write_runtime_manifest(
         "scoring_assets": scoring_assets or [],
         "objective": objective,
         "final_score_key": final_score_key,
+        "scorer_result_schema": effective_scorer_result_schema,
         "policies": policies
         or {
             "coverage_policy": "reject",
@@ -132,8 +138,6 @@ def write_runtime_manifest(
             "invalid_value_policy": "reject",
         },
     }
-    if scorer_result_schema is not None:
-        runtime_manifest["scorer_result_schema"] = scorer_result_schema
     manifest_path = input_dir / "runtime-manifest.json"
     manifest_path.write_text(json.dumps(runtime_manifest), encoding="utf-8")
     return runtime_manifest
