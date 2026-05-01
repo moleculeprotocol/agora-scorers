@@ -31,6 +31,16 @@ async function createTempDir() {
   return await fs.mkdtemp(path.join(os.tmpdir(), "agora-replay-test-"));
 }
 
+async function withCwd(cwd, callback) {
+  const previousCwd = process.cwd();
+  process.chdir(cwd);
+  try {
+    return await callback();
+  } finally {
+    process.chdir(previousCwd);
+  }
+}
+
 function buildSpec(overrides = {}) {
   const evalBytes = bytes("id,target\n1,0.9\n");
   const programBytes = bytes('print("program")\n');
@@ -347,6 +357,17 @@ test("replays a public proof bundle and emits receiver contract fields", async (
   assert.equal(result.output_hash_matches, true);
   assert.equal(result.container_digest_matches, true);
   assert.deepEqual(result.mismatches, []);
+});
+
+test("replays from an arbitrary user working directory", async () => {
+  const userCwd = await createTempDir();
+  try {
+    const result = await withCwd(userCwd, async () => await runFixture());
+    assert.equal(result.status, "matched");
+    assert.match(result.runtime_manifest_schema_sha256, /^[a-f0-9]{64}$/);
+  } finally {
+    await fs.rm(userCwd, { recursive: true, force: true });
+  }
 });
 
 test("rejects proof bundles without replaySubmissionCid", async () => {
