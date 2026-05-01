@@ -43,3 +43,25 @@ The desired long-term state is an organization-owned npm scope with CI-backed
 publishing. Do not add additional npm package families under the personal scope
 without first deciding whether the scope is permanent or migrating to an
 organization-owned namespace.
+
+## Official Runtime Image Provenance
+
+The official scorer runtime image is published by `.github/workflows/publish.yml`
+to `ghcr.io/moleculeprotocol/agora-scorer-compiled`. The workflow publishes a
+GitHub/Sigstore provenance attestation for the pushed image digest and records
+the verifier inputs in `official-runtime-release.json`.
+
+Verify a published image before accepting a new Agora main runtime-profile
+digest:
+
+```bash
+gh attestation verify \
+  oci://ghcr.io/moleculeprotocol/agora-scorer-compiled@sha256:<digest> \
+  --repo moleculeprotocol/agora-scorers \
+  --signer-workflow moleculeprotocol/agora-scorers/.github/workflows/publish.yml \
+  --source-digest <commit>
+```
+
+Use `digest`, `provenance.source_commit`, and `provenance.signer_workflow` from
+`official-runtime-release.json`. Agora main owns the consuming digest-rotation
+gate; this repo owns producing the attested image and release artifact metadata.

@@ -11,7 +11,8 @@
   },
   "scripts": {
     "test": "node test/replay.test.js",
-    "check:replay-boundary": "node scripts/check-replay-boundary.mjs"
+    "check:replay-boundary": "node scripts/check-replay-boundary.mjs",
+    "check:release-provenance": "node scripts/check-release-provenance.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^1.7.1",

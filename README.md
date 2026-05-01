@@ -209,12 +209,33 @@ The publish workflow:
 - checks that the official runtime image stays code-only
 - verifies the vendored canonical runtime manifest schema hash
 - builds multi-arch images for `linux/amd64` and `linux/arm64`
+- emits max-mode BuildKit provenance for the pushed image
+- publishes a GitHub/Sigstore provenance attestation for the pushed image
+  digest
 - publishes `:latest` and `:sha-<git-commit>` tags to GHCR
 - emits `runtime_manifest_schema_sha256` and
   `supported_program_abi_versions` in `official-runtime-release.json`
+- emits verifier-oriented provenance metadata in
+  `official-runtime-release.json`: subject name, subject digest, source
+  repository, source ref, source commit, signer workflow, and attestation URL
 
 The Docker build context is the repo root so the shared runtime helpers in
 `common/` are available to the image.
+
+Verify an official image's source provenance with the GitHub CLI:
+
+```bash
+gh attestation verify \
+  oci://ghcr.io/moleculeprotocol/agora-scorer-compiled@sha256:<digest> \
+  --repo moleculeprotocol/agora-scorers \
+  --signer-workflow moleculeprotocol/agora-scorers/.github/workflows/publish.yml \
+  --source-digest <commit>
+```
+
+Use the `digest`, `provenance.subject_name`, `provenance.source_commit`, and
+`provenance.signer_workflow` fields from `official-runtime-release.json`.
+Agora main digest rotation must reject a release whose provenance does not
+match those fields.
 
 ## Related Links
 
