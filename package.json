@@ -1,0 +1,27 @@
+{
+  "name": "@moleculeprotocol/agora-replay",
+  "version": "0.1.0",
+  "description": "Standalone third-party replay verifier for Agora scorer proofs.",
+  "type": "module",
+  "bin": {
+    "agora-replay": "./bin/agora-replay.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node test/replay.test.js",
+    "check:replay-boundary": "node scripts/check-replay-boundary.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.7.1",
+    "yaml": "^2.7.0",
+    "zod": "^3.25.76"
+  },
+  "files": [
+    "bin",
+    "src",
+    "schema",
+    "README.md"
+  ]
+}
