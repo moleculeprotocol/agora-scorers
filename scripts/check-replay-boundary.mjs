@@ -32,7 +32,7 @@ for (const dir of replayDirs) {
     for (const pattern of forbiddenPatterns) {
       if (pattern.test(source)) {
         throw new Error(
-          `${path.relative(rootDir, filePath)} imports @agora workspace code. Next step: keep @moleculeprotocol/agora-replay standalone and copy only public wire contracts needed by third-party replay.`,
+          `${path.relative(rootDir, filePath)} imports @agora workspace code. Next step: keep @moleculeagora/agora-replay standalone and copy only public wire contracts needed by third-party replay.`,
         );
       }
     }

@@ -27,7 +27,7 @@ export async function readRuntimeManifestSchemaSha256(rootDir = PACKAGE_ROOT_DIR
     const detail = error instanceof Error ? error.message : String(error);
     fail(
       `Replay receiver package is missing vendored runtime manifest schema artifacts: ${detail}`,
-      "reinstall @moleculeprotocol/agora-replay and retry.",
+      "reinstall @moleculeagora/agora-replay and retry.",
       "schema_artifact_missing",
     );
   }

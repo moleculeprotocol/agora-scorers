@@ -32,7 +32,7 @@ Those remain in the main Agora repo.
 This repo also publishes the standalone receiver for public Agora proof replay:
 
 ```bash
-npx @moleculeprotocol/agora-replay --proof <cid> --format json
+npx @moleculeagora/agora-replay --proof <cid> --format json
 ```
 
 The receiver consumes public proof bundles, fetches the public challenge spec
