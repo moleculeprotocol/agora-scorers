@@ -2,8 +2,8 @@
 
 ## Purpose
 
-How to extend Agora scoring without spreading execution logic across the API,
-worker, and web app.
+How this public scorer image fits into Agora scoring without spreading product
+semantics across the API, worker, web app, and runtime image.
 
 This repo targets one canonical V2 scorer runtime contract:
 
@@ -13,8 +13,9 @@ This repo targets one canonical V2 scorer runtime contract:
 - `/input/scoring_assets/<role>/<filename>`
 - `/output/score.json`
 
-The official image in this repo is the stable execution envelope. Challenge
-variation belongs in staged scoring assets, not in new official image names.
+The official image in this repo is the stable L5 execution envelope. Challenge
+variation belongs in staged scoring assets emitted by the main Agora compiler,
+not in new official image names or method-specific image branches.
 
 ## Boundary
 
@@ -22,23 +23,63 @@ Agora scoring stays clean when these responsibilities remain separate:
 
 1. `packages/common/src/runtime-profile-registry.ts` in the main repo
    - owns official runtime image identity and runtime limits
-2. `packages/common/src/authoring-preset-registry.ts` in the main repo
-   - owns poster-facing archetype templates
-3. `apps/api/src/lib/evaluation-materializer.ts` in the main repo
+2. `apps/api/src/lib/evaluation-materializer.ts` in the main repo
    - owns compilation from evaluation intent to staged scoring assets
-4. `packages/scorer/src/pipeline.ts` in the main repo
+3. `packages/scorer/src/pipeline.ts` in the main repo
    - stages files, writes `runtime-manifest.json`, runs Docker
-5. This scorer repo
-   - owns the public scorer code, helper SDK, external examples, and local tests
+4. This scorer repo
+   - owns the public official runtime image code and local runtime tests
 
-This repo should not assume product routing or poster authoring behavior beyond
-the mounted runtime contract above.
+This repo should not assume product routing, poster authoring behavior, method
+vocabulary, metric vocabulary, aggregator vocabulary, capability discovery, or
+proof semantics beyond the mounted runtime contract above.
+
+## Scoring Framework Fit
+
+Agora's scoring model separates five axes:
+
+1. L1 submission shape: owned by the main Agora artifact validators.
+2. L2 reference source: owned by the main Agora evaluation bindings.
+3. L3 comparison primitive: owned by the main Agora scoring registry and
+   surfaced through `GET /api/authoring/capabilities`.
+4. L4 composition: owned by the main Agora aggregator registry and compiled
+   into staged scoring assets.
+5. L5 runtime substrate: owned here as the official deterministic image.
+
+This repo owns only L5 runtime mechanism. It must not copy the L3/L4 catalog
+from the main repo. The image receives one staged Python-v1 program asset,
+executes it, and requires `/output/score.json`.
+
+Composition is invisible to the image. For a single component, the staged
+program can be that component's compiled scoring program. For a composed score,
+the staged program can be `l4-composition.py`, with component logic staged as
+additional scoring assets. The image still runs one Python-v1 program.
+
+Use the three-lens rule when deciding where a change belongs:
+
+- math truth belongs outside Agora-specific runtime code
+- product policy belongs in the main Agora repo
+- runtime mechanism belongs in this public image only when it changes how a
+  staged program is executed
+
+Canonical discovery lives in the main Agora repo:
+
+- methods, metrics, aggregators, and authoring shapes:
+  `GET /api/authoring/capabilities`
+- runtime manifest schema:
+  `/.well-known/scorer-runtime-manifest.schema.json`
+- scorer result schema:
+  `/.well-known/scorer-result-schema.schema.json`
+- scoring model:
+  `docs/product/scoring-layer-invariants.md`
+- pattern catalog:
+  `docs/product/scoring-pattern-catalog.md`
 
 ## File Map
 
 ### `common/runtime_manifest.py`
 
-Shared scorer-side runtime loader for both official and external scorers.
+Shared scorer-side runtime loader for the official runtime image.
 
 It owns:
 
@@ -56,7 +97,7 @@ Shared local fixture helpers.
 
 It owns:
 
-- staged artifact fixtures for official and external runtimes
+- staged artifact fixtures for the official runtime
 - staged scoring-asset fixtures
 - runtime manifest writers for local tests
 - canonical score output readers for regression fixtures
@@ -71,7 +112,7 @@ It owns:
 - validating the official runtime profile id
 - discovering the single staged program scoring asset
 - discovering the staged `python_v1_runtime_sdk` document asset
-- exporting the python-v1 environment seam
+- exporting the python-v1 environment
 - executing the staged compiled program
 
 It must not re-implement challenge-specific scoring logic or own the
@@ -94,17 +135,6 @@ Compiled programs import `agora_runtime` from the staged scoring asset. This
 image prepends that asset directory to `PYTHONPATH`; it does not bake a copy of
 the SDK.
 
-### `examples/external-*`
-
-Executable external scorer templates.
-
-These examples show the supported external scorer development path:
-
-- reuse `common/runtime_manifest.py`
-- stage local fixtures with `common/runtime_test_support.py`
-- implement deterministic custom logic
-- write one `/output/score.json`
-
 ### `agora-scorer-compiled/test_score.py`
 
 The official runtime regression test.
@@ -113,19 +143,9 @@ It should prove:
 
 - canonical official runtime manifest succeeds
 - missing staged program asset fails loudly
-- external runtime manifests are rejected by the official image
+- non-official runtime manifests are rejected by the official image
 - staged compiled programs can import the helper SDK
 - compiled programs can reject a submission without masquerading as runtime failure
-
-## Building A Custom External Scorer
-
-1. Start from `examples/external-minimal` or
-   `examples/external-weighted-composite`.
-2. Reuse `common/runtime_manifest.py`.
-3. Stage local fixtures with `common/runtime_test_support.py`.
-4. Keep all scoring deterministic and local to the container.
-5. Write one `/output/score.json` with a single scalar `score` plus structured
-   `details`.
 
 ## Design Rules
 
@@ -135,7 +155,7 @@ It should prove:
 - Keep challenge semantics out of this repo.
 - Keep one official image unless the dependency envelope changes materially.
 - Keep the compiled-program ABI explicit and stable.
-- Keep external examples broad by runtime primitive, not by one challenge domain.
+- Keep capability enumeration out of this repo; route to capability discovery.
 
 ## Release Rule
 

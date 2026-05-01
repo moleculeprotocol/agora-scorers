@@ -1,9 +1,9 @@
 # Agora Scorers
 
-Public source for Agora's scorer-side runtime artifacts.
+Public source for Agora's official scorer runtime image.
 
-This repo now owns one official scorer image and the reference kit for
-deterministic external runtimes that speak the same mounted contract.
+This repo owns one official scorer image: the public, deterministic execution
+substrate for Agora's compiled scoring programs.
 
 It owns:
 
@@ -11,12 +11,13 @@ It owns:
 - scorer-side runtime manifest helpers
 - scorer regression tests
 - GHCR publication workflow
-- external scorer reference examples
 
 It does not own:
 
 - poster authoring UX
 - challenge taxonomy
+- scoring method, metric, or aggregator vocabulary
+- capability discovery
 - the python-v1 helper SDK for compiled programs
 - runtime profile selection in Agora
 - worker orchestration
@@ -51,6 +52,10 @@ taxonomy, or the `python-v1` helper SDK. It reads compiler-produced scoring
 assets and executes them. Variation belongs in staged scoring assets, not in
 image identity.
 
+Capability enumeration belongs to the main Agora repo. Agents and verifiers
+should discover available methods, metrics, aggregators, and authoring shapes
+through `GET /api/authoring/capabilities`, not by reading this repo.
+
 ## Official Runtime
 
 There is one official image:
@@ -59,25 +64,17 @@ There is one official image:
 | --- | --- | --- |
 | `agora-scorer-compiled` | `official_compiled_runtime` | Executes one staged compiled program plus any staged scoring config/bundles against the mounted runtime manifest |
 
-This image is the official lane for:
-
-- `table_metric`
-- `ranking_metric`
-- `exact_match`
-- `rubric_validation`
-- `harness_execution`
-- `compiled_program`
-- `aggregate`
-
-The image stays stable. The compiler changes the staged `score.py` and related
-config per challenge.
+The image is the L5 runtime substrate. It does not branch on scoring method,
+metric, or aggregator names. The main Agora compiler stages one Python-v1
+program per invocation. That program can implement one scoring primitive or a
+composition program that calls staged component logic. The image still sees one
+program asset and writes one `/output/score.json`.
 
 ## Repo Layout
 
 ```text
 common/                     shared scorer runtime helpers
 agora-scorer-compiled/      official compiled runtime image
-examples/                   external scorer reference examples
 docs/                       scorer-side extension notes
 scripts/                    local test helpers and container guards
 ```
@@ -89,7 +86,7 @@ Shared runtime helpers:
   - role-bound artifact resolution
   - scoring-asset resolution
 - `common/runtime_test_support.py`
-  - local fixture helpers for official and external tests
+  - local fixture helpers for official runtime tests
 
 Official runtime files:
 
@@ -142,28 +139,23 @@ Run specific tests directly:
 ```bash
 python3 agora-scorer-compiled/test_score.py
 python3 common/test_runtime_manifest.py
-python3 examples/external-minimal/test_score.py
-python3 examples/external-weighted-composite/test_score.py
 ```
 
-## External Scorer Reference Kit
+## Canonical Discovery
 
-If you are building a custom external runtime for Agora:
+The main Agora repo owns product and scoring vocabulary. Use these public
+surfaces instead of copying capability lists into this repo:
 
-1. Reuse `common/runtime_manifest.py`.
-2. Reuse `common/runtime_test_support.py`.
-3. Start from one of the examples under `examples/`.
-4. Keep scoring deterministic.
-5. Write one `/output/score.json`.
-
-Reference examples:
-
-- `examples/external-minimal`
-  - smallest external scorer skeleton
-  - one evaluation role, one submission role
-- `examples/external-weighted-composite`
-  - multi-artifact external scorer
-  - weighted composite scoring with structured `details`
+- Methods, metrics, aggregators, and authoring shapes:
+  `GET /api/authoring/capabilities`
+- Runtime manifest schema:
+  `/.well-known/scorer-runtime-manifest.schema.json`
+- Scorer result schema:
+  `/.well-known/scorer-result-schema.schema.json`
+- Product scoring model:
+  `docs/product/scoring-layer-invariants.md` in the main Agora repo
+- Pattern catalog:
+  `docs/product/scoring-pattern-catalog.md` in the main Agora repo
 
 ## CI And Publication
 

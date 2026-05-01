@@ -12,7 +12,7 @@ _COVERAGE_POLICIES = {"reject", "ignore", "penalize"}
 _DUPLICATE_ID_POLICIES = {"reject", "ignore"}
 _INVALID_VALUE_POLICIES = {"reject", "ignore"}
 _OBJECTIVES = {"maximize", "minimize"}
-_RUNTIME_PROFILE_KINDS = {"official", "external"}
+_RUNTIME_PROFILE_KINDS = {"official"}
 _SCORING_ASSET_KINDS = {"program", "config", "bundle", "document"}
 _SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 

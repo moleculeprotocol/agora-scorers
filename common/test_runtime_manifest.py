@@ -9,7 +9,6 @@ from runtime_manifest import (
     resolve_scoring_asset_by_role,
 )
 from runtime_test_support import (
-    build_external_runtime_profile,
     build_official_runtime_profile,
     stage_runtime_artifact,
     stage_scoring_asset,
@@ -116,35 +115,28 @@ def make_runtime_manifest(*, runtime_profile: dict, include_program: bool) -> di
     return runtime_manifest
 
 
-def test_external_runtime_manifest_support() -> None:
+def test_unknown_runtime_profile_kind_rejected() -> None:
+    runtime_profile = {
+        **build_official_runtime_profile(),
+        "kind": "partner",
+    }
     runtime_fixture = make_runtime_manifest(
-        runtime_profile=build_external_runtime_profile(),
+        runtime_profile=runtime_profile,
         include_program=False,
     )
     workspace = runtime_fixture["workspace"]
     try:
-        runtime_manifest = load_runtime_manifest(
-            input_dir=workspace / "input",
-            fail_runtime=fail_runtime,
-        )
-        assert runtime_manifest["runtime_profile"]["kind"] == "external"
-        assert runtime_manifest["scoring_assets"] == []
-        assert runtime_manifest["objective"] == "maximize"
+        error = None
+        try:
+            load_runtime_manifest(
+                input_dir=workspace / "input",
+                fail_runtime=fail_runtime,
+            )
+        except RuntimeError as caught:
+            error = caught
 
-        reference_artifact = resolve_artifact_by_role(
-            runtime_manifest,
-            lane="evaluation",
-            role="reference",
-            fail_runtime=fail_runtime,
-        )
-        candidate_artifact = resolve_artifact_by_role(
-            runtime_manifest,
-            lane="submission",
-            role="candidate",
-            fail_runtime=fail_runtime,
-        )
-        assert reference_artifact["path"] is not None
-        assert candidate_artifact["path"] is not None
+        assert error is not None
+        assert "Unsupported kind in runtime manifest" in str(error)
     finally:
         shutil.rmtree(workspace)
 
@@ -185,7 +177,7 @@ def test_official_program_scoring_asset_resolution() -> None:
 
 
 def main() -> None:
-    test_external_runtime_manifest_support()
+    test_unknown_runtime_profile_kind_rejected()
     test_official_program_scoring_asset_resolution()
     print("runtime manifest tests passed")
 

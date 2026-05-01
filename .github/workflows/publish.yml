@@ -8,7 +8,6 @@ on:
     paths:
       - "common/**"
       - "agora-scorer-compiled/**"
-      - "examples/**"
       - "docs/**"
       - "README.md"
       - ".github/workflows/publish.yml"

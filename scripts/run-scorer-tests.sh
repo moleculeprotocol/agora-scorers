@@ -19,9 +19,3 @@ run_step "Official compiled runtime regression fixture" \
 
 run_step "Runtime manifest split fixture" \
   python3 common/test_runtime_manifest.py
-
-run_step "External minimal scorer fixture" \
-  python3 examples/external-minimal/test_score.py
-
-run_step "External weighted composite scorer fixture" \
-  python3 examples/external-weighted-composite/test_score.py

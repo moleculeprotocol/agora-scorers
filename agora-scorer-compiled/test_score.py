@@ -12,7 +12,6 @@ if str(COMMON_DIR) not in sys.path:
     sys.path.insert(0, str(COMMON_DIR))
 
 from runtime_test_support import (
-    build_external_runtime_profile,
     build_official_runtime_profile,
     read_score_output,
     stage_runtime_artifact,
@@ -350,14 +349,18 @@ def main() -> None:
     assert payload is not None
     assert "python_v1_runtime_sdk" in payload["error"], payload
 
+    unsupported_runtime_profile = {
+        **build_official_runtime_profile(),
+        "kind": "partner",
+    }
     exit_code, payload = run_case(
-        runtime_profile=build_external_runtime_profile(),
+        runtime_profile=unsupported_runtime_profile,
         reference_payload=json.dumps({"answer": "pep-1"}),
         candidate_payload=json.dumps({"answer": "pep-1"}),
     )
     assert exit_code == 1, exit_code
     assert payload is not None
-    assert "runtime_profile.kind=official" in payload["error"], payload
+    assert "Unsupported kind in runtime manifest" in payload["error"], payload
 
     print("compiled scorer tests passed")
 

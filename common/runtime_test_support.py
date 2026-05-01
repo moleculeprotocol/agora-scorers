@@ -20,23 +20,6 @@ def build_official_runtime_profile(
     }
 
 
-def build_external_runtime_profile(
-    image: str = "ghcr.io/acme/external-scorer@sha256:2222222222222222222222222222222222222222222222222222222222222222",
-) -> dict:
-    return {
-        "kind": "external",
-        "profile_id": "external",
-        "image": image,
-        "limits": {
-            "memory": "256m",
-            "cpus": "0.5",
-            "pids": 32,
-            "timeoutMs": 30_000,
-        },
-        "supported_program_abi_versions": ["python-v1"],
-    }
-
-
 def write_runtime_payload(path: Path, payload: str | bytes) -> bytes:
     path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(payload, bytes):
