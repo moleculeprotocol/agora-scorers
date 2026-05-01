@@ -172,6 +172,8 @@ npm test
 npm run check:replay-boundary
 ```
 
+Release notes for the npm receiver package live in [RELEASING.md](./RELEASING.md).
+
 Run specific tests directly:
 
 ```bash
