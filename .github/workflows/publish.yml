@@ -11,6 +11,11 @@ on:
       - "docs/**"
       - "README.md"
       - "schema/**"
+      - "bin/**"
+      - "src/**"
+      - "test/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/publish.yml"
       - "scripts/**"
 
@@ -35,7 +40,7 @@ jobs:
 
       - name: Reject retired scorer vocabulary
         run: |
-          scan_targets=(README.md docs common agora-scorer-compiled scripts .github)
+          scan_targets=(README.md docs common agora-scorer-compiled scripts bin src test package.json .github)
           if [ -d examples ]; then
             scan_targets+=(examples)
           fi
@@ -44,6 +49,15 @@ jobs:
             echo "Retired scorer vocabulary found. Next step: route scorer vocabulary to Agora main capability discovery instead of reintroducing stale public image terms." >&2
             exit 1
           fi
+
+      - name: Install replay receiver dependencies
+        run: npm ci
+
+      - name: Run replay receiver tests
+        run: npm test
+
+      - name: Run replay package boundary check
+        run: npm run check:replay-boundary
 
       - name: Run scorer regression tests
         run: bash scripts/run-scorer-tests.sh

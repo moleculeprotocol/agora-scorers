@@ -10,6 +10,7 @@ It owns:
 - the official compiled runtime image source
 - scorer-side runtime manifest helpers
 - scorer regression tests
+- the standalone public replay receiver CLI
 - GHCR publication workflow
 
 It does not own:
@@ -25,6 +26,31 @@ It does not own:
 - on-chain settlement
 
 Those remain in the main Agora repo.
+
+## Third-Party Replay Receiver
+
+This repo also publishes the standalone receiver for public Agora proof replay:
+
+```bash
+npx @moleculeprotocol/agora-replay --proof <cid> --format json
+```
+
+The receiver consumes public proof bundles, fetches the public challenge spec
+and replay submission bundle, stages the runtime mounted contract, pulls the
+digest-pinned official image anonymously, runs Docker without network access,
+and emits a JSON replay result. It does not require cloning the main Agora
+monorepo.
+
+The output includes:
+
+- `runtime_manifest_schema_sha256`
+- `supported_program_abi_versions`
+- `program_abi_version`
+- `score_matches`
+- `input_hash_matches`
+- `output_hash_matches`
+- `container_digest_matches`
+- `mismatches`
 
 ## Runtime Contract
 
@@ -75,6 +101,9 @@ program asset and writes one `/output/score.json`.
 ```text
 common/                     shared scorer runtime helpers
 agora-scorer-compiled/      official compiled runtime image
+bin/                        agora-replay executable entry point
+src/                        standalone replay receiver implementation
+test/                       replay receiver fixtures and tests
 docs/                       scorer-side extension notes
 schema/                     vendored Agora main canonical runtime schema
 scripts/                    local test helpers and container guards
@@ -135,6 +164,14 @@ Run all scorer regression tests:
 bash scripts/run-scorer-tests.sh
 ```
 
+Run replay receiver tests and boundary checks:
+
+```bash
+npm ci
+npm test
+npm run check:replay-boundary
+```
+
 Run specific tests directly:
 
 ```bash
@@ -162,6 +199,9 @@ surfaces instead of copying capability lists into this repo:
 
 The publish workflow:
 
+- installs the standalone replay receiver package
+- runs replay receiver tests
+- checks that the replay receiver does not import Agora workspace packages
 - runs scorer regression tests
 - rejects retired scorer vocabulary in active public-repo surfaces
 - checks that the official runtime image stays code-only
