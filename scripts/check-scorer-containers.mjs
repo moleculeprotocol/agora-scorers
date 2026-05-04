@@ -6,7 +6,14 @@ const maxEmbeddedAssetBytes = 1_000_000;
 const disallowedAssetPattern =
   /\.(csv|tsv|jsonl|parquet|arrow|feather|npy|npz|pt|pth|ckpt|onnx|pkl|pickle|joblib|bin|h5|hdf5|tar|tgz|gz|bz2|xz|zip)$/i;
 
-const scorerDirs = ["agora-scorer-compiled"];
+const scorerDirs = ["agora-scorer-compiled", "agora-scorer-rdkit"];
+const rdkitRequirementsPath = path.join(
+  rootDir,
+  "agora-scorer-rdkit",
+  "requirements.txt",
+);
+const disallowedRequirementPattern =
+  /\b(scanpy|scvelo|biopython|biotite|dock|jupyter|notebook|torch|tensorflow|scipy|sklearn|scikit-learn)\b/i;
 
 function fail(message) {
   throw new Error(
@@ -94,6 +101,24 @@ function validateContainerDir(containerDir) {
   }
 }
 
+function validateRdkitRequirements() {
+  if (!fs.existsSync(rdkitRequirementsPath)) {
+    fail("Missing agora-scorer-rdkit/requirements.txt.");
+  }
+  const requirements = fs.readFileSync(rdkitRequirementsPath, "utf8");
+  for (const expected of ["rdkit==2025.3.1", "numpy==2.4.4", "Pillow==12.2.0"]) {
+    if (!requirements.includes(expected)) {
+      fail(`RDKit requirements must include exact pin ${expected}.`);
+    }
+  }
+  if (!requirements.includes("--hash=sha256:")) {
+    fail("RDKit requirements must use hash-locked package pins.");
+  }
+  if (disallowedRequirementPattern.test(requirements)) {
+    fail("RDKit requirements include a broad or out-of-scope science package.");
+  }
+}
+
 for (const name of scorerDirs) {
   const containerDir = path.join(rootDir, name);
   if (!fs.existsSync(containerDir)) {
@@ -101,5 +126,7 @@ for (const name of scorerDirs) {
   }
   validateContainerDir(containerDir);
 }
+
+validateRdkitRequirements();
 
 console.log("scorer container guard passed");

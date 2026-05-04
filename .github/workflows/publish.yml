@@ -8,6 +8,7 @@ on:
     paths:
       - "common/**"
       - "agora-scorer-compiled/**"
+      - "agora-scorer-rdkit/**"
       - "docs/**"
       - "README.md"
       - "schema/**"
@@ -68,6 +69,9 @@ jobs:
       - name: Run container guard
         run: node scripts/check-scorer-containers.mjs
 
+      - name: Run RDKit image smoke
+        run: npm run check:rdkit-image
+
   publish:
     runs-on: ubuntu-latest
     needs: test
@@ -84,6 +88,11 @@ jobs:
           - name: agora-scorer-compiled
             dockerfile: agora-scorer-compiled/Dockerfile
             profile_id: official_compiled_runtime
+            supported_program_abi_versions: python-v1
+            determinism_env_json: '{"LANG":"C.UTF-8","LC_ALL":"C.UTF-8","PYTHONHASHSEED":"0","SOURCE_DATE_EPOCH":"0","TZ":"UTC"}'
+          - name: agora-scorer-rdkit
+            dockerfile: agora-scorer-rdkit/Dockerfile
+            profile_id: rdkit_python_runtime
             supported_program_abi_versions: python-v1
             determinism_env_json: '{"LANG":"C.UTF-8","LC_ALL":"C.UTF-8","PYTHONHASHSEED":"0","SOURCE_DATE_EPOCH":"0","TZ":"UTC"}'
 

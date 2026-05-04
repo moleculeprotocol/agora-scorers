@@ -46,9 +46,10 @@ organization-owned namespace.
 
 ## Official Runtime Image Provenance
 
-The official scorer runtime image is published by `.github/workflows/publish.yml`
-to `ghcr.io/moleculeprotocol/agora-scorer-compiled`. The workflow publishes a
-GitHub/Sigstore provenance attestation for the pushed image digest and records
+The official scorer runtime images are published by `.github/workflows/publish.yml`
+to `ghcr.io/moleculeprotocol/agora-scorer-compiled` and
+`ghcr.io/moleculeprotocol/agora-scorer-rdkit`. The workflow publishes a
+GitHub/Sigstore provenance attestation for each pushed image digest and records
 the verifier inputs in `official-runtime-release.json`.
 
 Verify a published image before accepting a new Agora main runtime-profile
@@ -56,7 +57,7 @@ digest:
 
 ```bash
 gh attestation verify \
-  oci://ghcr.io/moleculeprotocol/agora-scorer-compiled@sha256:<digest> \
+  oci://ghcr.io/moleculeprotocol/<image-package>@sha256:<digest> \
   --repo moleculeprotocol/agora-scorers \
   --signer-workflow moleculeprotocol/agora-scorers/.github/workflows/publish.yml \
   --source-digest <commit>

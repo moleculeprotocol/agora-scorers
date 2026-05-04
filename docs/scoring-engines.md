@@ -13,9 +13,9 @@ This repo targets one canonical V2 scorer runtime contract:
 - `/input/scoring_assets/<role>/<filename>`
 - `/output/score.json`
 
-The official image in this repo is the stable L5 execution envelope. Challenge
+The official images in this repo are stable L5 execution envelopes. Challenge
 variation belongs in staged scoring assets emitted by the main Agora compiler,
-not in new official image names or method-specific image branches.
+not in method-specific image branches.
 
 ## Boundary
 
@@ -44,10 +44,10 @@ Agora's scoring model separates five axes:
    surfaced through `GET /api/authoring/capabilities`.
 4. L4 composition: owned by the main Agora aggregator registry and compiled
    into staged scoring assets.
-5. L5 runtime substrate: owned here as the official deterministic image.
+5. L5 runtime substrate: owned here as official deterministic images.
 
 This repo owns only L5 runtime mechanism. It must not copy the L3/L4 catalog
-from the main repo. The image receives one staged Python-v1 program asset,
+from the main repo. Each image receives one staged Python-v1 program asset,
 executes it, and requires `/output/score.json`.
 
 Composition is invisible to the image. For a single component, the staged
@@ -109,7 +109,6 @@ The official runtime entrypoint.
 It owns:
 
 - validating `runtime_profile.kind=official`
-- validating the official runtime profile id
 - discovering the single staged program scoring asset
 - discovering the staged `python_v1_runtime_sdk` document asset
 - exporting the python-v1 environment
@@ -154,9 +153,26 @@ It should prove:
 - Keep runtime parsing centralized.
 - Keep the deterministic process environment owned by `runtime_profile`.
 - Keep challenge semantics out of this repo.
-- Keep one official image unless the dependency envelope changes materially.
+- Add an official image only when the dependency envelope changes materially.
 - Keep the compiled-program ABI explicit and stable.
 - Keep capability enumeration out of this repo; route to capability discovery.
+
+### `agora-scorer-rdkit/Dockerfile`
+
+The RDKit runtime image is a scoped dependency-envelope sibling of the compiled
+runtime image.
+
+It owns:
+
+- `rdkit_python_runtime` image build inputs
+- Python 3.11.9 slim base-image digest
+- hash-locked `rdkit==2025.3.1`, `numpy==2.4.4`, and `Pillow==12.2.0`
+- no extra apt packages, datasets, model weights, notebooks, docking engines,
+  or scoring-time installs
+
+It deliberately reuses `agora-scorer-compiled/entrypoint.py`, the shared
+runtime manifest loader, and the staged Python-v1 SDK path. RDKit availability
+is a runtime dependency fact, not scoring method vocabulary.
 
 ## Release Rule
 
@@ -179,7 +195,7 @@ management, timeout enforcement, and integration with the settlement layer.
 
 ### Image execution (this repo)
 
-The image published from this repo executes one staged compiled program per
+Each image published from this repo executes one staged compiled program per
 invocation. It receives mounted inputs via the V2 contract, runs the
 deterministic scoring logic, and writes `/output/score.json`. It has no
 knowledge of queue depth, retries, or downstream consumers.
@@ -196,7 +212,7 @@ the scorer image. Conversely, a scoring logic update never risks breaking
 pipeline plumbing.
 
 The publish workflow in this repo (`.github/workflows/publish.yml`) produces
-the image and emits a release artifact (`official-runtime-release.json`) with
+each image and emits a release artifact (`official-runtime-release.json`) with
 the explicit handoff fields the main repo needs: `profile_id`, `image_ref`,
 `digest`, `tags`, `platforms`, `runtime_manifest_schema_sha256`,
 `supported_program_abi_versions`, `determinism_env_sha256`, and scorer-repo

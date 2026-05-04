@@ -49,6 +49,7 @@ assertEqual(
 );
 
 findStep(testJob, "Run release provenance check");
+findStep(testJob, "Run RDKit image smoke");
 
 const buildStep = findStep(publishJob, "Build and push ${{ matrix.name }}");
 assertEqual(
@@ -60,6 +61,7 @@ const matrixRows = publishJob.strategy?.matrix?.include ?? [];
 const compiledRuntimeRow = matrixRows.find(
   (row) => row.name === "agora-scorer-compiled",
 );
+const rdkitRuntimeRow = matrixRows.find((row) => row.name === "agora-scorer-rdkit");
 assertEqual(
   compiledRuntimeRow?.profile_id,
   "official_compiled_runtime",
@@ -74,6 +76,21 @@ assertEqual(
   compiledRuntimeRow?.determinism_env_json,
   '{"LANG":"C.UTF-8","LC_ALL":"C.UTF-8","PYTHONHASHSEED":"0","SOURCE_DATE_EPOCH":"0","TZ":"UTC"}',
   "compiled runtime matrix determinism env",
+);
+assertEqual(
+  rdkitRuntimeRow?.profile_id,
+  "rdkit_python_runtime",
+  "RDKit runtime matrix profile_id",
+);
+assertEqual(
+  rdkitRuntimeRow?.supported_program_abi_versions,
+  "python-v1",
+  "RDKit runtime matrix ABI list",
+);
+assertEqual(
+  rdkitRuntimeRow?.determinism_env_json,
+  '{"LANG":"C.UTF-8","LC_ALL":"C.UTF-8","PYTHONHASHSEED":"0","SOURCE_DATE_EPOCH":"0","TZ":"UTC"}',
+  "RDKit runtime matrix determinism env",
 );
 
 const attestStep = findStep(publishJob, "Attest ${{ matrix.name }} image provenance");

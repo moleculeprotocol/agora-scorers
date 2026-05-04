@@ -1,13 +1,13 @@
 # Agora Scorers
 
-Public source for Agora's official scorer runtime image.
+Public source for Agora's official scorer runtime images.
 
-This repo owns one official scorer image: the public, deterministic execution
-substrate for Agora's compiled scoring programs.
+This repo owns the public, deterministic execution substrate images for
+Agora's compiled scoring programs.
 
 It owns:
 
-- the official compiled runtime image source
+- official runtime image source
 - scorer-side runtime manifest helpers
 - scorer regression tests
 - the standalone public replay receiver CLI
@@ -74,9 +74,9 @@ The runtime manifest declares:
 - `final_score_key`
 - `policies`
 
-The official image does not own metric logic, relation templates, challenge
-taxonomy, or the `python-v1` helper SDK. It reads compiler-produced scoring
-assets and executes them. Variation belongs in staged scoring assets, not in
+Official images do not own metric logic, relation templates, challenge
+taxonomy, or the `python-v1` helper SDK. They read compiler-produced scoring
+assets and execute them. Variation belongs in staged scoring assets, not in
 image identity.
 
 Capability enumeration belongs to the main Agora repo. Agents and verifiers
@@ -85,11 +85,12 @@ through `GET /api/authoring/capabilities`, not by reading this repo.
 
 ## Official Runtime
 
-There is one official image:
+Official images:
 
 | Container | Runtime profile id | What it does |
 | --- | --- | --- |
 | `agora-scorer-compiled` | `official_compiled_runtime` | Executes one staged compiled program plus any staged scoring config/bundles against the mounted runtime manifest |
+| `agora-scorer-rdkit` | `rdkit_python_runtime` | Executes the same Python-v1 mounted contract with RDKit available for deterministic molecule artifact checks |
 
 The runtime profile owns the deterministic child-process environment. The
 current official profile pins `LANG`, `LC_ALL`, `PYTHONHASHSEED`,
@@ -102,11 +103,24 @@ program per invocation. That program can implement one scoring primitive or a
 composition program that calls staged component logic. The image still sees one
 program asset and writes one `/output/score.json`.
 
+`agora-scorer-rdkit` is a scoped dependency envelope, not a broad scientific
+Python image. It pins:
+
+- base image:
+  `python:3.11.9-slim@sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317`
+- `rdkit==2025.3.1`
+- `numpy==2.4.4`
+- `Pillow==12.2.0`
+
+No apt packages, datasets, model weights, notebooks, docking engines, or
+scoring-time package installs are added.
+
 ## Repo Layout
 
 ```text
 common/                     shared scorer runtime helpers
 agora-scorer-compiled/      official compiled runtime image
+agora-scorer-rdkit/         official RDKit dependency-envelope runtime image
 bin/                        agora-replay executable entry point
 src/                        standalone replay receiver implementation
 test/                       replay receiver fixtures and tests
@@ -135,6 +149,11 @@ Official runtime files:
     executing the staged program
 - `agora-scorer-compiled/test_score.py`
   - scorer regression tests for the official compiled runtime
+- `agora-scorer-rdkit/Dockerfile`
+  - installs only the hash-locked RDKit dependency envelope
+  - reuses the compiled runtime entrypoint and staged Python-v1 SDK path
+- `agora-scorer-rdkit/requirements.txt`
+  - records the exact wheel hashes accepted for linux/amd64 and linux/arm64
 
 ## Code-Only Policy
 
@@ -158,6 +177,8 @@ Convenience tags:
 ```bash
 docker pull ghcr.io/moleculeprotocol/agora-scorer-compiled:latest
 docker pull ghcr.io/moleculeprotocol/agora-scorer-compiled:sha-<git-commit>
+docker pull ghcr.io/moleculeprotocol/agora-scorer-rdkit:latest
+docker pull ghcr.io/moleculeprotocol/agora-scorer-rdkit:sha-<git-commit>
 ```
 
 Agora itself must bind the runtime profile to an immutable digest, not a
@@ -177,6 +198,8 @@ Run replay receiver tests and boundary checks:
 npm ci
 npm test
 npm run check:replay-boundary
+npm run check:release-provenance
+npm run check:rdkit-image
 ```
 
 Release notes for the npm receiver package live in [RELEASING.md](./RELEASING.md).
@@ -214,6 +237,7 @@ The publish workflow:
 - runs scorer regression tests
 - rejects retired scorer vocabulary in active public-repo surfaces
 - checks that the official runtime image stays code-only
+- builds and runs the RDKit image smoke fixture
 - verifies the vendored canonical runtime manifest schema hash
 - builds multi-arch images for `linux/amd64` and `linux/arm64`
 - emits max-mode BuildKit provenance for the pushed image
@@ -233,7 +257,7 @@ Verify an official image's source provenance with the GitHub CLI:
 
 ```bash
 gh attestation verify \
-  oci://ghcr.io/moleculeprotocol/agora-scorer-compiled@sha256:<digest> \
+  oci://ghcr.io/moleculeprotocol/<image-package>@sha256:<digest> \
   --repo moleculeprotocol/agora-scorers \
   --signer-workflow moleculeprotocol/agora-scorers/.github/workflows/publish.yml \
   --source-digest <commit>
